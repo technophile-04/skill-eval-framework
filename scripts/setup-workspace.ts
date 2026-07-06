@@ -4,10 +4,14 @@ import { access, cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import yaml from "js-yaml";
-import type { RunMetadata, TaskSpec, Variant } from "../lib/types.js";
+import type { Executor, ResultRecord, TaskSpec, Variant } from "../lib/types.js";
 
 const ROOT = process.cwd();
+const EXECUTORS = new Set<Executor>(["claude", "codex"]);
 const VARIANTS = new Set<Variant>(["no_skill", "with_skill"]);
+const SETUP_ARGS = new Set(["task", "executor", "variant", "run"]);
+const TASK_FIELDS = new Set(["skill", "input", "template", "verifier", "expect", "runs", "notes"]);
+const REMOVED_TASK_FIELDS = new Set(["id", "domain", "workspace", "skill_source", "runs_per_variant"]);
 
 const fail = async (message: string, runDir?: string): Promise<never> => {
   if (runDir) {
@@ -39,6 +43,12 @@ const parseArgs = () => {
 
     parsed[key] = next;
     i++;
+  }
+
+  for (const key of Object.keys(parsed)) {
+    if (!SETUP_ARGS.has(key)) {
+      throw new Error(`unknown argument: --${key}`);
+    }
   }
 
   return parsed;
@@ -82,43 +92,54 @@ const loadTaskSpec = (taskPath: string): TaskSpec => {
     throw new Error("task spec must be a yaml mapping");
   }
 
-  const workspace = loaded.workspace;
-  const skillSource = loaded.skill_source;
-  const hasRepo = isRecord(workspace) && typeof workspace.repo === "string";
-  const hasCommit = isRecord(workspace) && typeof workspace.commit === "string";
-  const hasTemplate = isRecord(workspace) && typeof workspace.template === "string";
+  for (const field of Object.keys(loaded)) {
+    if (REMOVED_TASK_FIELDS.has(field)) {
+      throw new Error(`${field} was removed in v0.1`);
+    }
 
-  if (!isRecord(workspace)) {
-    throw new Error("missing required field: workspace");
-  }
-
-  if (!((hasRepo && hasCommit && !hasTemplate) || (hasTemplate && !hasRepo && !hasCommit))) {
-    throw new Error("workspace must contain exactly one of repo+commit or template");
-  }
-
-  if (!isRecord(skillSource)) {
-    throw new Error("missing required field: skill_source");
+    if (!TASK_FIELDS.has(field)) {
+      throw new Error(`unknown task spec field: ${field}`);
+    }
   }
 
   const spec: TaskSpec = {
-    id: requireString(loaded.id, "id"),
+    id: path.basename(taskPath, ".yaml"),
     skill: requireString(loaded.skill, "skill"),
-    domain: requireString(loaded.domain, "domain"),
     input: requireString(loaded.input, "input"),
-    workspace: hasTemplate
-      ? { template: workspace.template as string }
-      : { repo: workspace.repo as string, commit: workspace.commit as string },
-    skill_source: { path: requireString(skillSource.path, "skill_source.path") },
-    verifier: requireString(loaded.verifier, "verifier"),
-    expect: optionalStringArray(loaded.expect, "expect"),
-    runs_per_variant: requireNumber(loaded.runs_per_variant, "runs_per_variant"),
+    runs: requireNumber(loaded.runs, "runs"),
   };
+
+  if (loaded.verifier !== undefined) {
+    spec.verifier = requireString(loaded.verifier, "verifier");
+  }
+
+  const expect = optionalStringArray(loaded.expect, "expect");
+
+  if (expect !== undefined) {
+    spec.expect = expect;
+  }
+
+  if (spec.verifier === undefined && (expect === undefined || expect.length === 0)) {
+    throw new Error("task spec must define verifier or at least one expect");
+  }
+
+  if (loaded.template !== undefined) {
+    spec.template = requireString(loaded.template, "template");
+  }
 
   if (loaded.notes !== undefined) {
     spec.notes = requireString(loaded.notes, "notes");
   }
 
   return spec;
+};
+
+const parseExecutor = (value: string): Executor => {
+  if (!EXECUTORS.has(value as Executor)) {
+    throw new Error(`unknown executor: ${value}`);
+  }
+
+  return value as Executor;
 };
 
 const parseVariant = (value: string): Variant => {
@@ -136,36 +157,6 @@ const copyDirContents = async (sourceDir: string, targetDir: string) => {
   await access(sourceDir, constants.R_OK);
   await mkdir(targetDir, { recursive: true });
   await cp(sourceDir, targetDir, { recursive: true, force: true });
-};
-
-const cloneRepo = async (repo: string, commit: string, workspacePath: string) => {
-  const cloneUrl = `https://github.com/${repo}.git`;
-
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const result = spawnSync("git", ["clone", cloneUrl, workspacePath], {
-      encoding: "utf8",
-      stdio: "pipe",
-    });
-
-    if (result.status === 0) {
-      const checkout = spawnSync("git", ["-C", workspacePath, "checkout", commit], {
-        encoding: "utf8",
-        stdio: "pipe",
-      });
-
-      if (checkout.status !== 0) {
-        throw new Error(`git checkout failed: ${checkout.stderr.trim() || checkout.stdout.trim()}`);
-      }
-
-      return;
-    }
-
-    await rm(workspacePath, { recursive: true, force: true });
-
-    if (attempt === 2) {
-      throw new Error(`git clone failed twice: ${result.stderr.trim() || result.stdout.trim()}`);
-    }
-  }
 };
 
 const resolveRootPath = (value: string) => path.resolve(ROOT, value);
@@ -190,18 +181,25 @@ const getSkillVersion = (sourceDir: string) => {
     return "unversioned";
   }
 
-  const sha = execFileSync("git", ["-C", sourceDir, "rev-parse", "--short", "HEAD"], {
+  return execFileSync("git", ["-C", sourceDir, "rev-parse", "--short", "HEAD"], {
     encoding: "utf8",
   }).trim();
-
-  return `git:${sha}`;
 };
 
-const installSkill = async (sourceDir: string, skillName: string, workspacePath: string) => {
-  const destination = path.join(workspacePath, ".claude", "skills", skillName);
-
+const copySkill = async (sourceDir: string, destination: string) => {
   await mkdir(path.dirname(destination), { recursive: true });
   await cp(sourceDir, destination, { recursive: true, force: true });
+};
+
+const installSkill = async (sourceDir: string, skillName: string, executor: Executor, workspacePath: string) => {
+  const agentsDestination = path.join(workspacePath, ".agents", "skills", skillName);
+
+  await access(sourceDir, constants.R_OK);
+  await copySkill(sourceDir, agentsDestination);
+
+  if (executor === "claude") {
+    await copySkill(sourceDir, path.join(workspacePath, ".claude", "skills", skillName));
+  }
 };
 
 const walkFiles = async (dir: string) => {
@@ -229,10 +227,10 @@ const walkFiles = async (dir: string) => {
 const guardAgainstLeaks = async (
   workspacePath: string,
   taskPath: string,
-  verifierFile: string,
+  verifierFile: string | undefined,
   runDir: string,
 ) => {
-  const verifierBasename = path.basename(verifierFile);
+  const verifierBasename = verifierFile === undefined ? null : path.basename(verifierFile);
   const taskSpecBytes = readFileSync(taskPath);
   const workspaceFiles = await walkFiles(workspacePath);
 
@@ -244,7 +242,7 @@ const guardAgainstLeaks = async (
       await fail(`leak detected: workspace contains verifiers/ segment at ${relativePath}`, runDir);
     }
 
-    if (path.basename(file) === verifierBasename) {
+    if (verifierBasename !== null && path.basename(file) === verifierBasename) {
       await fail(`leak detected: workspace contains verifier filename ${relativePath}`, runDir);
     }
 
@@ -260,23 +258,13 @@ const main = async () => {
   try {
     const args = parseArgs();
     const taskArg = requireString(args.task, "--task");
+    const executor = parseExecutor(requireString(args.executor, "--executor"));
     const variant = parseVariant(requireString(args.variant, "--variant"));
     const run = requireString(args.run, "--run");
-    const skillPathArg = args["skill-path"];
-    const forced = args["force-skill"] === true;
-
-    if (variant === "no_skill" && skillPathArg !== undefined) {
-      throw new Error("--skill-path is only valid with --variant with_skill");
-    }
-
-    if (variant === "no_skill" && forced) {
-      throw new Error("--force-skill is only valid with --variant with_skill");
-    }
-
     const taskPath = resolveRootPath(taskArg);
     const spec = loadTaskSpec(taskPath);
     const timestamp = utcRunTimestamp(new Date());
-    const runId = `${timestamp}-${variant.replaceAll("_", "-")}-${run}`;
+    const runId = `${timestamp}-${executor}-${variant.replaceAll("_", "-")}-${run}`;
     const runDir = path.join(ROOT, "artifacts", spec.id, runId);
     const workspacePath = path.join(runDir, "workspace");
 
@@ -287,38 +275,33 @@ const main = async () => {
     await mkdir(runDir, { recursive: true });
 
     try {
-      if (spec.workspace.template !== undefined) {
-        await copyDirContents(resolveRootPath(spec.workspace.template), workspacePath);
+      if (spec.template !== undefined) {
+        await copyDirContents(resolveRootPath(spec.template), workspacePath);
       } else {
-        await cloneRepo(spec.workspace.repo, spec.workspace.commit, workspacePath);
+        await mkdir(workspacePath, { recursive: true });
       }
 
       await writeFile(path.join(workspacePath, "TASK.md"), spec.input);
 
-      const installedSkillSource =
-        variant === "with_skill"
-          ? resolveRootPath(typeof skillPathArg === "string" ? skillPathArg : spec.skill_source.path)
-          : null;
+      const skillSource = variant === "with_skill" ? resolveRootPath(spec.skill) : null;
+      const skillVersion = skillSource ? getSkillVersion(skillSource) : null;
 
-      if (installedSkillSource) {
-        await installSkill(installedSkillSource, spec.skill, workspacePath);
+      if (skillSource) {
+        await installSkill(skillSource, path.basename(skillSource), executor, workspacePath);
       }
 
       await guardAgainstLeaks(workspacePath, taskPath, spec.verifier, runDir);
 
-      const skillVersion = installedSkillSource ? getSkillVersion(installedSkillSource) : null;
-      const metadata: RunMetadata = {
-        task_id: spec.id,
-        run_id: runId,
+      const result: ResultRecord = {
+        task: spec.id,
+        run: runId,
+        executor,
         variant,
-        forced,
-        created: new Date().toISOString(),
-        workspace: path.relative(ROOT, workspacePath),
         skill_version: skillVersion,
-        skill_installed: installedSkillSource !== null,
+        created: new Date().toISOString(),
       };
 
-      await writeFile(path.join(runDir, "run.yaml"), yaml.dump(metadata, { lineWidth: -1 }));
+      await writeFile(path.join(runDir, "result.yaml"), yaml.dump(result, { lineWidth: -1 }));
 
       console.log(path.resolve(workspacePath));
       console.log("Spawn a fresh executor in this directory and point it only at TASK.md.");

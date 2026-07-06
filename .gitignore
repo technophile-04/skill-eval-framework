@@ -4,6 +4,9 @@ node_modules/
 artifacts/**/workspace/
 artifacts/**/transcript.md
 
+# workspace seeds are regenerated, not versioned (task notes record how)
+templates/
+
 *.tsbuildinfo
 .DS_Store
 

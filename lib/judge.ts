@@ -44,17 +44,17 @@ const parseVerdicts = (output: string, expectations: string[]): JudgeResult => {
   return { ok: true, expects };
 };
 
-export const judgeExpectations = (taskInput: string, expectations: string[], diff: string): JudgeResult => {
+export const judgeExpectations = (taskInput: string, expectations: string[], evidence: string): JudgeResult => {
   const prompt = [
     "You are grading a coding-agent run. You are blind to the variant and skill.",
-    "Decide whether each numbered condition is satisfied by the diff for the task.",
+    "Decide whether each numbered condition is satisfied by the evidence for the task.",
     'Return only strict JSON: {"verdicts":[{"condition":1,"pass":true,"reason":"..."}]}',
     "",
     "TASK:",
     taskInput,
     "",
-    "DIFF:",
-    diff,
+    "EVIDENCE:",
+    evidence,
     "",
     "EXPECT CONDITIONS:",
     ...expectations.map((condition, index) => `${index + 1}. ${condition}`),

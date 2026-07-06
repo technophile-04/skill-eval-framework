@@ -1,15 +1,19 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 import process from "node:process";
 import yaml from "js-yaml";
 import { judgeExpectations } from "../lib/judge.js";
-import type { AssertionStatus, ResultRecord, RunMetadata, TaskSpec, Variant, Verifier, VerifierReport } from "../lib/types.js";
+import type { AssertionStatus, Executor, ResultRecord, TaskSpec, Variant, Verifier, VerifierReport } from "../lib/types.js";
 
 const ROOT = process.cwd();
+const EXECUTORS = new Set<Executor>(["claude", "codex"]);
 const VARIANTS = new Set<Variant>(["no_skill", "with_skill"]);
+const VERIFY_ARGS = new Set(["run"]);
+const TASK_FIELDS = new Set(["skill", "input", "template", "verifier", "expect", "runs", "notes"]);
+const REMOVED_TASK_FIELDS = new Set(["id", "domain", "workspace", "skill_source", "runs_per_variant"]);
 
 const parseArgs = () => {
   const args = process.argv.slice(2);
@@ -34,12 +38,38 @@ const parseArgs = () => {
     i++;
   }
 
+  for (const key of Object.keys(parsed)) {
+    if (!VERIFY_ARGS.has(key)) {
+      throw new Error(`unknown argument: --${key}`);
+    }
+  }
+
   return parsed;
 };
 
 const requireString = (value: unknown, name: string) => {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`missing required field: ${name}`);
+  }
+
+  return value;
+};
+
+const requireNumber = (value: unknown, name: string) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`missing required numeric field: ${name}`);
+  }
+
+  return value;
+};
+
+const optionalStringArray = (value: unknown, name: string) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value) || value.some(item => typeof item !== "string")) {
+    throw new Error(`${name} must be a string array when present`);
   }
 
   return value;
@@ -58,82 +88,106 @@ const loadYamlFile = (filePath: string) => {
   return loaded;
 };
 
-const optionalStringArray = (value: unknown, name: string) => {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (!Array.isArray(value) || value.some(item => typeof item !== "string")) {
-    throw new Error(`${name} must be a string array when present`);
-  }
-
-  return value;
-};
-
 const loadTaskSpec = (taskPath: string): TaskSpec => {
   const loaded = loadYamlFile(taskPath);
-  const workspace = loaded.workspace;
-  const skillSource = loaded.skill_source;
 
-  if (!isRecord(workspace)) {
-    throw new Error("missing required field: workspace");
+  for (const field of Object.keys(loaded)) {
+    if (REMOVED_TASK_FIELDS.has(field)) {
+      throw new Error(`${field} was removed in v0.1`);
+    }
+
+    if (!TASK_FIELDS.has(field)) {
+      throw new Error(`unknown task spec field: ${field}`);
+    }
   }
 
-  if (!isRecord(skillSource)) {
-    throw new Error("missing required field: skill_source");
-  }
-
-  const hasTemplate = typeof workspace.template === "string";
-  const hasRepoCommit = typeof workspace.repo === "string" && typeof workspace.commit === "string";
-
-  return {
-    id: requireString(loaded.id, "id"),
+  const spec: TaskSpec = {
+    id: path.basename(taskPath, ".yaml"),
     skill: requireString(loaded.skill, "skill"),
-    domain: requireString(loaded.domain, "domain"),
     input: requireString(loaded.input, "input"),
-    workspace: hasTemplate
-      ? { template: workspace.template as string }
-      : {
-          repo: hasRepoCommit ? (workspace.repo as string) : requireString(workspace.repo, "workspace.repo"),
-          commit: hasRepoCommit ? (workspace.commit as string) : requireString(workspace.commit, "workspace.commit"),
-        },
-    skill_source: { path: requireString(skillSource.path, "skill_source.path") },
-    verifier: requireString(loaded.verifier, "verifier"),
-    expect: optionalStringArray(loaded.expect, "expect"),
-    runs_per_variant: typeof loaded.runs_per_variant === "number" ? loaded.runs_per_variant : 0,
-    notes: loaded.notes === undefined ? undefined : requireString(loaded.notes, "notes"),
+    runs: requireNumber(loaded.runs, "runs"),
   };
+
+  if (loaded.verifier !== undefined) {
+    spec.verifier = requireString(loaded.verifier, "verifier");
+  }
+
+  const expect = optionalStringArray(loaded.expect, "expect");
+
+  if (expect !== undefined) {
+    spec.expect = expect;
+  }
+
+  if (spec.verifier === undefined && (expect === undefined || expect.length === 0)) {
+    throw new Error("task spec must define verifier or at least one expect");
+  }
+
+  if (loaded.template !== undefined) {
+    spec.template = requireString(loaded.template, "template");
+  }
+
+  if (loaded.notes !== undefined) {
+    spec.notes = requireString(loaded.notes, "notes");
+  }
+
+  return spec;
+};
+
+const parseExecutor = (value: string): Executor => {
+  if (!EXECUTORS.has(value as Executor)) {
+    throw new Error(`unknown executor in result.yaml: ${value}`);
+  }
+
+  return value as Executor;
 };
 
 const parseVariant = (value: string): Variant => {
   if (!VARIANTS.has(value as Variant)) {
-    throw new Error(`unknown variant in run.yaml: ${value}`);
+    throw new Error(`unknown variant in result.yaml: ${value}`);
   }
 
   return value as Variant;
 };
 
-const loadRunMetadata = (runPath: string): RunMetadata => {
-  const loaded = loadYamlFile(runPath);
+const loadResultRecord = (resultPath: string): ResultRecord => {
+  const loaded = loadYamlFile(resultPath);
 
   return {
-    task_id: requireString(loaded.task_id, "task_id"),
-    run_id: requireString(loaded.run_id, "run_id"),
+    task: requireString(loaded.task, "task"),
+    run: requireString(loaded.run, "run"),
+    executor: parseExecutor(requireString(loaded.executor, "executor")),
     variant: parseVariant(requireString(loaded.variant, "variant")),
-    forced: Boolean(loaded.forced),
-    created: requireString(loaded.created, "created"),
-    workspace: requireString(loaded.workspace, "workspace"),
     skill_version: loaded.skill_version === null ? null : requireString(loaded.skill_version, "skill_version"),
-    skill_installed: Boolean(loaded.skill_installed),
+    created: requireString(loaded.created, "created"),
+    assertions: loaded.assertions === undefined ? undefined : readAssertions(loaded.assertions),
+    expects: loaded.expects === undefined ? undefined : readAssertions(loaded.expects),
+    pass: loaded.pass === undefined ? undefined : Boolean(loaded.pass),
   };
 };
 
-const writeDiff = async (workspacePath: string, diffPath: string) => {
-  if (!existsSync(path.join(workspacePath, ".git"))) {
-    await writeFile(diffPath, "");
-    return "";
+const walkFiles = async (dir: string) => {
+  const entries: string[] = [];
+  const pending = [dir];
+
+  while (pending.length > 0) {
+    const current = pending.pop() as string;
+    const childNames = await readdir(current, { withFileTypes: true });
+
+    for (const child of childNames) {
+      const fullPath = path.join(current, child.name);
+
+      if (child.isDirectory()) {
+        pending.push(fullPath);
+      } else if (child.isFile()) {
+        entries.push(fullPath);
+      }
+    }
   }
 
+  return entries;
+};
+
+const writeDiff = async (workspacePath: string, diffPath: string) => {
   const diff = execFileSync("git", ["-C", workspacePath, "diff"], { encoding: "utf8" });
   const status = execFileSync("git", ["-C", workspacePath, "status", "--porcelain"], { encoding: "utf8" });
   const content = `${diff}${diff.endsWith("\n") || diff.length === 0 ? "" : "\n"}\n# Untracked files and status\n${status}`;
@@ -142,19 +196,85 @@ const writeDiff = async (workspacePath: string, diffPath: string) => {
   return content;
 };
 
+const snapshotOutput = async (workspacePath: string, outputPath: string) => {
+  await rm(outputPath, { recursive: true, force: true });
+
+  for (const file of await walkFiles(workspacePath)) {
+    const relativePath = path.relative(workspacePath, file);
+    const segments = relativePath.split(path.sep);
+
+    if (
+      relativePath === "TASK.md" ||
+      segments[0] === ".agents" ||
+      segments[0] === ".claude" ||
+      segments[0] === "node_modules"
+    ) {
+      continue;
+    }
+
+    const target = path.join(outputPath, relativePath);
+
+    await mkdir(path.dirname(target), { recursive: true });
+    await cp(file, target);
+  }
+};
+
+const buildEvidence = async (runDir: string) => {
+  const sections: string[] = [];
+  const diffPath = path.join(runDir, "run.diff");
+  const outputPath = path.join(runDir, "output");
+
+  if (existsSync(diffPath)) {
+    sections.push(["# run.diff", readFileSync(diffPath, "utf8")].join("\n"));
+  }
+
+  if (existsSync(outputPath)) {
+    for (const file of await walkFiles(outputPath)) {
+      const relativePath = path.relative(outputPath, file);
+
+      sections.push([`# output/${relativePath}`, readFileSync(file, "utf8")].join("\n"));
+    }
+  }
+
+  return sections.join("\n\n");
+};
+
+const readAssertions = (value: unknown) => {
+  if (!isRecord(value)) {
+    throw new Error("assertions must be a mapping");
+  }
+
+  const assertions: Record<string, AssertionStatus> = {};
+
+  for (const [name, status] of Object.entries(value)) {
+    if (status !== "pass" && status !== "fail") {
+      throw new Error(`verifier assertion ${name} must be pass or fail`);
+    }
+
+    assertions[name] = status;
+  }
+
+  return assertions;
+};
+
 const validateVerifierReport = (report: VerifierReport) => {
   if (!isRecord(report) || !isRecord(report.assertions)) {
     throw new Error("verifier must return an assertions mapping");
   }
 
-  for (const [name, status] of Object.entries(report.assertions)) {
-    if (status !== "pass" && status !== "fail") {
-      throw new Error(`verifier assertion ${name} must be pass or fail`);
-    }
+  const assertions = readAssertions(report.assertions);
+
+  if (Object.keys(assertions).length === 0) {
+    throw new Error("verifier must return at least one assertion");
   }
+
+  return assertions;
 };
 
-const summarize = (assertions: Record<string, AssertionStatus>, expects: Record<string, AssertionStatus>) => {
+const summarize = (
+  assertions: Record<string, AssertionStatus>,
+  expects: Record<string, AssertionStatus>,
+) => {
   const rows = [...Object.entries(assertions), ...Object.entries(expects)];
   const nameWidth = Math.max("check".length, ...rows.map(([name]) => name.length));
 
@@ -173,70 +293,58 @@ const main = async () => {
     const runDir = path.resolve(ROOT, runArg);
     const resultPath = path.join(runDir, "result.yaml");
 
-    if (existsSync(resultPath) && args.force !== true) {
-      throw new Error(`result.yaml already exists at ${resultPath}; pass --force to overwrite`);
+    if (!existsSync(resultPath)) {
+      throw new Error(`missing result.yaml at ${resultPath}`);
     }
 
-    const runMetadata = loadRunMetadata(path.join(runDir, "run.yaml"));
-    const taskSpec = loadTaskSpec(path.join(ROOT, "tasks", `${runMetadata.task_id}.yaml`));
-    const workspacePath = path.resolve(ROOT, runMetadata.workspace);
-    const diffPath = path.join(runDir, "run.diff");
-    const diff = await writeDiff(workspacePath, diffPath);
+    const rawResult = loadYamlFile(resultPath);
 
-    const verifierPath = path.resolve(ROOT, taskSpec.verifier);
-    const imported = (await import(pathToFileURL(verifierPath).href)) as { default?: Verifier };
-
-    if (typeof imported.default !== "function") {
-      throw new Error(`verifier ${taskSpec.verifier} must default-export a function`);
+    if (Object.prototype.hasOwnProperty.call(rawResult, "pass")) {
+      throw new Error(`run already graded; delete ${runDir} and re-run setup-workspace if you need a redo`);
     }
 
-    const report = await imported.default(workspacePath);
+    const result = loadResultRecord(resultPath);
+    const taskSpec = loadTaskSpec(path.join(ROOT, "tasks", `${result.task}.yaml`));
+    const workspacePath = path.join(runDir, "workspace");
 
-    validateVerifierReport(report);
+    if (existsSync(path.join(workspacePath, ".git"))) {
+      await writeDiff(workspacePath, path.join(runDir, "run.diff"));
+    } else {
+      await snapshotOutput(workspacePath, path.join(runDir, "output"));
+    }
 
-    const assertions = report.assertions;
+    const assertions: Record<string, AssertionStatus> = {};
+
+    if (taskSpec.verifier !== undefined) {
+      const verifierPath = path.resolve(ROOT, taskSpec.verifier);
+      const imported = (await import(pathToFileURL(verifierPath).href)) as { default?: Verifier };
+
+      if (typeof imported.default !== "function") {
+        throw new Error(`verifier ${taskSpec.verifier} must default-export a function`);
+      }
+
+      Object.assign(assertions, validateVerifierReport(await imported.default(path.resolve(workspacePath))));
+    }
+
     const expectations = taskSpec.expect ?? [];
-    const judge = expectations.length > 0 ? judgeExpectations(taskSpec.input, expectations, diff) : null;
+    const judge = expectations.length > 0 ? judgeExpectations(taskSpec.input, expectations, await buildEvidence(runDir)) : null;
+
+    if (judge?.ok === false) {
+      throw new Error(`judge failed: ${judge.error}`);
+    }
+
     const expects = judge?.expects ?? {};
-    const assertionValues = Object.values(assertions);
-    const expectValues = Object.values(expects);
-    const passingAssertions = assertionValues.filter(status => status === "pass").length;
-    const passingExpects = expectValues.filter(status => status === "pass").length;
-    const score = (report.score ?? passingAssertions) + passingExpects;
-    const maxScore = (report.maxScore ?? assertionValues.length) + expectations.length;
-    const outcome =
-      judge?.ok === false
-        ? "judge_error"
-        : [...assertionValues, ...expectValues].every(status => status === "pass")
-          ? "pass"
-          : "task_fail";
-    const result: ResultRecord = {
-      task_id: runMetadata.task_id,
-      run_id: runMetadata.run_id,
-      variant: runMetadata.variant,
-      forced: runMetadata.forced,
-      model: null,
-      skill_version: runMetadata.skill_version,
-      outcome,
-      score,
-      max_score: maxScore,
+    const pass = [...Object.values(assertions), ...Object.values(expects)].every(status => status === "pass");
+    const gradedResult: ResultRecord = {
+      ...result,
       assertions,
       expects,
-      metrics: {
-        seconds: null,
-        input_tokens: null,
-        output_tokens: null,
-      },
-      failure_tags: judge?.ok === false ? [`judge_error:${judge.error}`] : [],
-      artifacts: {
-        diff: "run.diff",
-        transcript: "transcript.md",
-      },
+      pass,
     };
 
-    await writeFile(resultPath, yaml.dump(result, { lineWidth: -1 }));
+    await writeFile(resultPath, yaml.dump(gradedResult, { lineWidth: -1 }));
     summarize(assertions, expects);
-    process.exit(outcome === "pass" ? 0 : 2);
+    process.exit(pass ? 0 : 2);
   } catch (error) {
     console.error(`verify: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
