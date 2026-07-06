@@ -9,7 +9,7 @@ v0.1 is shaped around one concrete consumer: knowledge-shaped skill libraries li
 There is no runner. Whatever coding agent you already drive orchestrates the benchmark loop — `AGENTS.md` is the full playbook, including every record schema. Two small scripts guard the steps where improvisation would corrupt results:
 
 - `yarn setup` builds a clean workspace for one run: task prompt in, skill installed (or not), and a hard fail if any grading material would leak in.
-- `yarn verify` grades a finished run: snapshots the output, runs the optional deterministic verifier, has a blind LLM judge grade the task's `expect:` lines, and writes `result.yaml`.
+- `yarn verify` grades a finished run: snapshots the output, has a blind LLM judge grade the task's `expect:` lines against it, and writes `result.yaml`.
 
 Executors are pluggable: `--executor claude` or `--executor codex`. Skills install at the cross-agent standard `.agents/skills/` (codex reads it natively; claude runs get a bridge copy at `.claude/skills/`).
 
@@ -19,7 +19,6 @@ The orchestrating agent never performs the task itself, and executors never see 
 
 ```
 tasks/        task specs (yaml, one per task; filename = task id)
-verifiers/    optional deterministic grading code, never enters a workspace
 skills/       vendored skill versions under test
 templates/    workspace seeds (gitignored; tasks record how to regenerate)
 artifacts/    run output: result.yaml + run.diff + output/ committed,

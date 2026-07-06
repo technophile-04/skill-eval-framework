@@ -26,9 +26,9 @@ Save the executor's full transcript to `<run-dir>/transcript.md`.
 
 ## Authoring a task — who writes what
 
-You draft the task yaml (and verifier, if any) from the skill under test: read the skill, find the prior it corrects, write an `input` a stale-prior agent will get wrong, and `expect:` lines that catch exactly that. The human sanity-checks the draft once; from then on grading is scripts and the judge, never you.
+You draft the task yaml from the skill under test: read the skill, find the prior it corrects, write an `input` a stale-prior agent will get wrong, and `expect:` lines that catch exactly that. The human sanity-checks the draft once; from then on grading is the script and the judge, never you.
 
-Grade with `expect:` lines by default — they scale across a skill library without per-skill code. Write a verifier only for what scripts check better than judges (builds, file existence, exact strings), and add one whenever a judge could bluff a pass.
+All grading goes through `expect:` lines — they scale across a skill library without per-skill code. Write them concrete enough that the judge can't bluff: name the file, the magnitude, the derivation you want to see, not just "does it look right".
 
 Task yaml, all fields (`tasks/<id>.yaml`; the id is the filename):
 
@@ -37,9 +37,8 @@ skill: skills/gas                # path to the skill dir; basename = install nam
 input: |                         # executor prompt; identical for every variant
   ...
 template: templates/create-eth   # optional; omit for a bare workspace (just TASK.md)
-expect:                          # judged conditions   ┐ at least one
-  - "..."                        #                     │ of these two
-verifier: verifiers/<id>.ts      # deterministic checks┘
+expect:                          # judged conditions, at least one
+  - "..."
 runs: 3                          # per variant; below 3 is noise
 notes: free text                 # optional
 ```
@@ -50,7 +49,7 @@ Question-shaped tasks (most of ethskills) run in a bare workspace and answer int
 
 1. `yarn setup --task tasks/<id>.yaml --variant <no_skill|with_skill> --run <n> --executor <claude|codex>`
 2. Spawn a fresh executor in the printed workspace. Point it at `TASK.md` and nothing else.
-3. `yarn verify --run artifacts/<id>/<run-id>` — snapshots output, runs the verifier and judge, fills `result.yaml`.
+3. `yarn verify --run artifacts/<id>/<run-id>` — snapshots output, runs the judge, fills `result.yaml`.
 4. After all runs: the headline is raw pass counts per variant (`with_skill 2/3 vs no_skill 0/3`). Compare per-check failures, not just the aggregate.
 5. File a mistake record in `mistakes/` the first time you see a mistake — `frequency: 1/1` is honest about weak evidence; an unfiled observation is just lost.
 6. Write the comparison to `reports/<task-id>-<date>.md`, ending with the seven-question table below.
@@ -59,7 +58,7 @@ Question-shaped tasks (most of ethskills) run in a bare workspace and answer int
 ## Hard rules
 
 1. **Never perform the task yourself.** Your context is contaminated by definition. Every run is a fresh executor. If you catch yourself editing files inside a workspace, stop, delete the run, start over.
-2. **The executor never sees the grading.** Verifiers, the task yaml, and expect lines stay out of the workspace. `setup` enforces this and hard-fails on leaks; don't work around it.
+2. **The executor never sees the grading.** The task yaml and its expect lines stay out of the workspace. `setup` enforces this and hard-fails on leaks; don't work around it.
 3. **Always use the scripts** for setup and grading — these are the two steps where improvisation quietly corrupts records.
 4. **Grade after execution, independently.** Never let an executor self-report success.
 5. **Delete workspaces after grading.** `verify` snapshots un-gitted workspace output into `<run-dir>/output/` first, so nothing is lost; the records are the history.
@@ -88,11 +87,10 @@ executor: claude
 variant: with_skill
 skill_version: 191dcc1         # git short sha of the skill source; null for no_skill
 created: 2026-07-06T09:30:00Z
-assertions: {}                 # verifier checks, when a verifier exists
 expects:                       # judged expect lines, in task-spec order
   expect_1: pass
   expect_2: fail
-pass: false                    # every assertion and expect passed
+pass: false                    # every expect passed
 ```
 
 `mistakes/<skill>/<mistake-id>.yaml` — the part that makes the framework useful. Scores say whether the skill helped; mistakes say what to write next:
@@ -111,7 +109,7 @@ skill_section: "What You Probably Got Wrong"   # the section that should prevent
 status: open                   # open | fixed | wontfix
 ```
 
-Records from before v0.1 (`erc20-goldtoken-001`) use the old schema — valid history, never rewrite them.
+Records from before v0.1 (`erc20-goldtoken-001`) use the old schema — valid history, never rewrite them. Their task spec and deterministic verifier were removed along with the verifier concept; the full files live in git history.
 
 ## Reports
 
@@ -131,7 +129,7 @@ The last row is there on purpose. Sometimes the eval is the wrong artifact, not 
 
 ## What gets committed
 
-Committed: task specs, verifiers, vendored skills under test, `result.yaml`, `run.diff`, `output/`, mistake records, reports. Gitignored: workspaces, transcripts, `templates/`.
+Committed: task specs, vendored skills under test, `result.yaml`, `run.diff`, `output/`, mistake records, reports. Gitignored: workspaces, transcripts, `templates/`.
 
 ## Code style
 

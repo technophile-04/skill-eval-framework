@@ -4,14 +4,13 @@ import { access, cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import yaml from "js-yaml";
-import type { Executor, ResultRecord, TaskSpec, Variant } from "../lib/types.js";
+import { loadTaskSpec, parseArgs, requireString } from "../lib/task.js";
+import type { Executor, ResultRecord, Variant } from "../lib/types.js";
 
 const ROOT = process.cwd();
 const EXECUTORS = new Set<Executor>(["claude", "codex"]);
 const VARIANTS = new Set<Variant>(["no_skill", "with_skill"]);
 const SETUP_ARGS = new Set(["task", "executor", "variant", "run"]);
-const TASK_FIELDS = new Set(["skill", "input", "template", "verifier", "expect", "runs", "notes"]);
-const REMOVED_TASK_FIELDS = new Set(["id", "domain", "workspace", "skill_source", "runs_per_variant"]);
 
 const fail = async (message: string, runDir?: string): Promise<never> => {
   if (runDir) {
@@ -20,118 +19,6 @@ const fail = async (message: string, runDir?: string): Promise<never> => {
 
   console.error(`setup-workspace: ${message}`);
   process.exit(1);
-};
-
-const parseArgs = () => {
-  const args = process.argv.slice(2);
-  const parsed: Record<string, string | boolean> = {};
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (!arg.startsWith("--")) {
-      throw new Error(`unexpected positional argument: ${arg}`);
-    }
-
-    const key = arg.slice(2);
-    const next = args[i + 1];
-
-    if (!next || next.startsWith("--")) {
-      parsed[key] = true;
-      continue;
-    }
-
-    parsed[key] = next;
-    i++;
-  }
-
-  for (const key of Object.keys(parsed)) {
-    if (!SETUP_ARGS.has(key)) {
-      throw new Error(`unknown argument: --${key}`);
-    }
-  }
-
-  return parsed;
-};
-
-const requireString = (value: unknown, name: string) => {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`missing required field: ${name}`);
-  }
-
-  return value;
-};
-
-const requireNumber = (value: unknown, name: string) => {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`missing required numeric field: ${name}`);
-  }
-
-  return value;
-};
-
-const optionalStringArray = (value: unknown, name: string) => {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (!Array.isArray(value) || value.some(item => typeof item !== "string")) {
-    throw new Error(`${name} must be a string array when present`);
-  }
-
-  return value;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const loadTaskSpec = (taskPath: string): TaskSpec => {
-  const loaded = yaml.load(readFileSync(taskPath, "utf8"));
-
-  if (!isRecord(loaded)) {
-    throw new Error("task spec must be a yaml mapping");
-  }
-
-  for (const field of Object.keys(loaded)) {
-    if (REMOVED_TASK_FIELDS.has(field)) {
-      throw new Error(`${field} was removed in v0.1`);
-    }
-
-    if (!TASK_FIELDS.has(field)) {
-      throw new Error(`unknown task spec field: ${field}`);
-    }
-  }
-
-  const spec: TaskSpec = {
-    id: path.basename(taskPath, ".yaml"),
-    skill: requireString(loaded.skill, "skill"),
-    input: requireString(loaded.input, "input"),
-    runs: requireNumber(loaded.runs, "runs"),
-  };
-
-  if (loaded.verifier !== undefined) {
-    spec.verifier = requireString(loaded.verifier, "verifier");
-  }
-
-  const expect = optionalStringArray(loaded.expect, "expect");
-
-  if (expect !== undefined) {
-    spec.expect = expect;
-  }
-
-  if (spec.verifier === undefined && (expect === undefined || expect.length === 0)) {
-    throw new Error("task spec must define verifier or at least one expect");
-  }
-
-  if (loaded.template !== undefined) {
-    spec.template = requireString(loaded.template, "template");
-  }
-
-  if (loaded.notes !== undefined) {
-    spec.notes = requireString(loaded.notes, "notes");
-  }
-
-  return spec;
 };
 
 const parseExecutor = (value: string): Executor => {
@@ -224,31 +111,17 @@ const walkFiles = async (dir: string) => {
   return entries;
 };
 
-const guardAgainstLeaks = async (
-  workspacePath: string,
-  taskPath: string,
-  verifierFile: string | undefined,
-  runDir: string,
-) => {
-  const verifierBasename = verifierFile === undefined ? null : path.basename(verifierFile);
+// The task yaml carries the expect lines, i.e. the grading. It must never
+// reach the executor's workspace in any form.
+const guardAgainstLeaks = async (workspacePath: string, taskPath: string, runDir: string) => {
   const taskSpecBytes = readFileSync(taskPath);
-  const workspaceFiles = await walkFiles(workspacePath);
 
-  for (const file of workspaceFiles) {
-    const relativePath = path.relative(workspacePath, file);
-    const segments = relativePath.split(path.sep);
-
-    if (segments.includes("verifiers")) {
-      await fail(`leak detected: workspace contains verifiers/ segment at ${relativePath}`, runDir);
-    }
-
-    if (verifierBasename !== null && path.basename(file) === verifierBasename) {
-      await fail(`leak detected: workspace contains verifier filename ${relativePath}`, runDir);
-    }
-
+  for (const file of await walkFiles(workspacePath)) {
     const bytes = readFileSync(file);
 
     if (bytes.length === taskSpecBytes.length && bytes.equals(taskSpecBytes)) {
+      const relativePath = path.relative(workspacePath, file);
+
       await fail(`leak detected: workspace contains a copy of the task spec at ${relativePath}`, runDir);
     }
   }
@@ -256,7 +129,7 @@ const guardAgainstLeaks = async (
 
 const main = async () => {
   try {
-    const args = parseArgs();
+    const args = parseArgs(SETUP_ARGS);
     const taskArg = requireString(args.task, "--task");
     const executor = parseExecutor(requireString(args.executor, "--executor"));
     const variant = parseVariant(requireString(args.variant, "--variant"));
@@ -290,7 +163,7 @@ const main = async () => {
         await installSkill(skillSource, path.basename(skillSource), executor, workspacePath);
       }
 
-      await guardAgainstLeaks(workspacePath, taskPath, spec.verifier, runDir);
+      await guardAgainstLeaks(workspacePath, taskPath, runDir);
 
       const result: ResultRecord = {
         task: spec.id,

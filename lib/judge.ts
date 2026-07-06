@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
-import type { AssertionStatus } from "./types.js";
+import type { ExpectStatus } from "./types.js";
 
 export type JudgeResult =
-  | { ok: true; expects: Record<string, AssertionStatus> }
-  | { ok: false; expects: Record<string, AssertionStatus>; error: string };
+  | { ok: true; expects: Record<string, ExpectStatus> }
+  | { ok: false; expects: Record<string, ExpectStatus>; error: string };
 
 const JUDGE_TIMEOUT_MS = 120_000;
 
@@ -25,7 +25,7 @@ const parseVerdicts = (output: string, expectations: string[]): JudgeResult => {
     return { ok: false, expects: failExpectations(expectations), error: "judge output missing verdicts array" };
   }
 
-  const expects: Record<string, AssertionStatus> = {};
+  const expects: Record<string, ExpectStatus> = {};
 
   for (let index = 0; index < expectations.length; index++) {
     const condition = index + 1;

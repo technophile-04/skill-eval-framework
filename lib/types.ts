@@ -6,13 +6,12 @@ export type TaskSpec = {
   skill: string;
   input: string;
   template?: string;
-  verifier?: string;
-  expect?: string[];
+  expect: string[];
   runs: number;
   notes?: string;
 };
 
-export type AssertionStatus = "pass" | "fail";
+export type ExpectStatus = "pass" | "fail";
 
 export type ResultRecord = {
   task: string;
@@ -21,13 +20,6 @@ export type ResultRecord = {
   variant: Variant;
   skill_version: string | null;
   created: string;
-  assertions?: Record<string, AssertionStatus>;
-  expects?: Record<string, AssertionStatus>;
+  expects?: Record<string, ExpectStatus>;
   pass?: boolean;
 };
-
-export type VerifierReport = {
-  assertions: Record<string, AssertionStatus>;
-};
-
-export type Verifier = (workspacePath: string) => Promise<VerifierReport>;
