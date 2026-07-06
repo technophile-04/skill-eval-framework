@@ -1,0 +1,26 @@
+task_id: erc20-goldtoken-001
+run_id: 2026-07-03T184441Z-current-skill-2
+variant: current_skill
+model: claude-opus-4-6
+skill_version: git:45d02d0
+pass: false
+score: 4
+max_score: 6
+assertions:
+  named_imports: fail
+  update_override: fail
+  erc20_capped: pass
+  compiles: pass
+  deploy_script: pass
+  mint_transfer_ui: pass
+metrics:
+  seconds: 521
+  input_tokens: 2460432
+  output_tokens: 13771
+failure_tags:
+  - erc20-wildcard-imports
+  - erc20-missing-update-override
+  - skill-not-triggered
+artifacts:
+  diff: run.diff
+  transcript: transcript.md

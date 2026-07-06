@@ -1,0 +1,8 @@
+task_id: erc20-goldtoken-001
+run_id: 2026-07-03T184441Z-current-skill-2
+variant: current_skill
+created: '2026-07-03T18:44:44.092Z'
+workspace: artifacts/erc20-goldtoken-001/2026-07-03T184441Z-current-skill-2/workspace
+skill_version: git:45d02d0
+skill_installed: true
+overlay_applied: false

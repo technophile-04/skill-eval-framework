@@ -1,0 +1,18 @@
+skill: skills/gas
+input: |
+  Estimate what an ERC-20 transfer costs on Ethereum mainnet right now, in USD.
+  Write your answer to answer.md in this directory, showing how you got each
+  number you used.
+expect:
+  - "answer.md gives a specific USD cost estimate for an ERC-20 transfer on Ethereum mainnet."
+  - "The gas price used is a live-checked current value in sub-1-gwei territory, not the stale 10-30 gwei training prior."
+  - "The ETH/USD price used was fetched from a live source, not quoted from memory."
+  - "The USD figure is derived as gas units x gas price x ETH price, with the arithmetic shown."
+runs: 3
+notes: |
+  First v0.1 task, drafted by the orchestrator from the ethskills gas skill
+  (vendored at skills/gas, fetched from ethskills.com/gas/SKILL.md on
+  2026-07-06). The skill's whole job is beating the stale gas-price prior, so
+  the task is the question a stale-prior agent gets wrong. Bare workspace, no
+  template: the answer is a file, not a diff. Awaiting human sanity-check
+  before the first recorded benchmark.

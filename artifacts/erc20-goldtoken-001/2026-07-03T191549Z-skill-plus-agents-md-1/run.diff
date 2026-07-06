@@ -1,0 +1,579 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 65623bf..7f44dbb 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -223,3 +223,9 @@ Use **Context7 MCP** tools to fetch up-to-date documentation for any library (Wa
+ Use these specialized agents for specific tasks:
+ 
+ - **`grumpy-carlos-code-reviewer`**: Use this agent for code reviews before finalizing changes
++
++## Skills
++
++Before starting work, check `.claude/skills/` for a skill matching the task and read its SKILL.md first:
++
++- **`erc-20`** (`.claude/skills/erc-20/SKILL.md`): read this before creating or modifying any ERC-20 / fungible token contract, token deploy script, or token UI. It covers OpenZeppelin v5 breaking changes and SE-2 integration pitfalls that are easy to get wrong from memory.
+diff --git a/packages/nextjs/.prettierrc.js b/packages/nextjs/.prettierrc.js
+index c6d6d73..ea72495 100644
+--- a/packages/nextjs/.prettierrc.js
++++ b/packages/nextjs/.prettierrc.js
+@@ -1,9 +1,9 @@
+ module.exports = {
+-  "arrowParens": "avoid",
+-  "printWidth": 120,
+-  "tabWidth": 2,
+-  "trailingComma": "all",
+-  "importOrder": ["^react$", "^next/(.*)$", "<THIRD_PARTY_MODULES>", "^@heroicons/(.*)$", "^~~/(.*)$"],
+-  "importOrderSortSpecifiers": true,
+-  "plugins": [require.resolve("@trivago/prettier-plugin-sort-imports")],
+-}
++  arrowParens: "avoid",
++  printWidth: 120,
++  tabWidth: 2,
++  trailingComma: "all",
++  importOrder: ["^react$", "^next/(.*)$", "<THIRD_PARTY_MODULES>", "^@heroicons/(.*)$", "^~~/(.*)$"],
++  importOrderSortSpecifiers: true,
++  plugins: [require.resolve("@trivago/prettier-plugin-sort-imports")],
++};
+diff --git a/packages/nextjs/components/Header.tsx b/packages/nextjs/components/Header.tsx
+index fba0c29..22f67fa 100644
+--- a/packages/nextjs/components/Header.tsx
++++ b/packages/nextjs/components/Header.tsx
+@@ -5,7 +5,7 @@ import Image from "next/image";
+ import Link from "next/link";
+ import { usePathname } from "next/navigation";
+ import { hardhat } from "viem/chains";
+-import { Bars3Icon, BugAntIcon } from "@heroicons/react/24/outline";
++import { Bars3Icon, BugAntIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
+ import { FaucetButton, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
+ import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-eth";
+ 
+@@ -20,6 +20,11 @@ export const menuLinks: HeaderMenuLink[] = [
+     label: "Home",
+     href: "/",
+   },
++  {
++    label: "Gold Token",
++    href: "/gold-token",
++    icon: <CurrencyDollarIcon className="h-4 w-4" />,
++  },
+   {
+     label: "Debug Contracts",
+     href: "/debug",
+diff --git a/packages/nextjs/contracts/deployedContracts.ts b/packages/nextjs/contracts/deployedContracts.ts
+index 008d4eb..36d1153 100644
+--- a/packages/nextjs/contracts/deployedContracts.ts
++++ b/packages/nextjs/contracts/deployedContracts.ts
+@@ -4,6 +4,489 @@
+  */
+ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
+ 
+-const deployedContracts = {} as const;
++const deployedContracts = {
++  31337: {
++    GoldToken: {
++      address: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
++      abi: [
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "initialOwner",
++              type: "address",
++            },
++          ],
++          stateMutability: "nonpayable",
++          type: "constructor",
++        },
++        {
++          inputs: [
++            {
++              internalType: "uint256",
++              name: "increasedSupply",
++              type: "uint256",
++            },
++            {
++              internalType: "uint256",
++              name: "cap",
++              type: "uint256",
++            },
++          ],
++          name: "ERC20ExceededCap",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "spender",
++              type: "address",
++            },
++            {
++              internalType: "uint256",
++              name: "allowance",
++              type: "uint256",
++            },
++            {
++              internalType: "uint256",
++              name: "needed",
++              type: "uint256",
++            },
++          ],
++          name: "ERC20InsufficientAllowance",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "sender",
++              type: "address",
++            },
++            {
++              internalType: "uint256",
++              name: "balance",
++              type: "uint256",
++            },
++            {
++              internalType: "uint256",
++              name: "needed",
++              type: "uint256",
++            },
++          ],
++          name: "ERC20InsufficientBalance",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "approver",
++              type: "address",
++            },
++          ],
++          name: "ERC20InvalidApprover",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "uint256",
++              name: "cap",
++              type: "uint256",
++            },
++          ],
++          name: "ERC20InvalidCap",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "receiver",
++              type: "address",
++            },
++          ],
++          name: "ERC20InvalidReceiver",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "sender",
++              type: "address",
++            },
++          ],
++          name: "ERC20InvalidSender",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "spender",
++              type: "address",
++            },
++          ],
++          name: "ERC20InvalidSpender",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "owner",
++              type: "address",
++            },
++          ],
++          name: "OwnableInvalidOwner",
++          type: "error",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "account",
++              type: "address",
++            },
++          ],
++          name: "OwnableUnauthorizedAccount",
++          type: "error",
++        },
++        {
++          anonymous: false,
++          inputs: [
++            {
++              indexed: true,
++              internalType: "address",
++              name: "owner",
++              type: "address",
++            },
++            {
++              indexed: true,
++              internalType: "address",
++              name: "spender",
++              type: "address",
++            },
++            {
++              indexed: false,
++              internalType: "uint256",
++              name: "value",
++              type: "uint256",
++            },
++          ],
++          name: "Approval",
++          type: "event",
++        },
++        {
++          anonymous: false,
++          inputs: [
++            {
++              indexed: true,
++              internalType: "address",
++              name: "previousOwner",
++              type: "address",
++            },
++            {
++              indexed: true,
++              internalType: "address",
++              name: "newOwner",
++              type: "address",
++            },
++          ],
++          name: "OwnershipTransferred",
++          type: "event",
++        },
++        {
++          anonymous: false,
++          inputs: [
++            {
++              indexed: true,
++              internalType: "address",
++              name: "from",
++              type: "address",
++            },
++            {
++              indexed: true,
++              internalType: "address",
++              name: "to",
++              type: "address",
++            },
++            {
++              indexed: false,
++              internalType: "uint256",
++              name: "value",
++              type: "uint256",
++            },
++          ],
++          name: "Transfer",
++          type: "event",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "owner",
++              type: "address",
++            },
++            {
++              internalType: "address",
++              name: "spender",
++              type: "address",
++            },
++          ],
++          name: "allowance",
++          outputs: [
++            {
++              internalType: "uint256",
++              name: "",
++              type: "uint256",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "spender",
++              type: "address",
++            },
++            {
++              internalType: "uint256",
++              name: "value",
++              type: "uint256",
++            },
++          ],
++          name: "approve",
++          outputs: [
++            {
++              internalType: "bool",
++              name: "",
++              type: "bool",
++            },
++          ],
++          stateMutability: "nonpayable",
++          type: "function",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "account",
++              type: "address",
++            },
++          ],
++          name: "balanceOf",
++          outputs: [
++            {
++              internalType: "uint256",
++              name: "",
++              type: "uint256",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [],
++          name: "cap",
++          outputs: [
++            {
++              internalType: "uint256",
++              name: "",
++              type: "uint256",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [],
++          name: "decimals",
++          outputs: [
++            {
++              internalType: "uint8",
++              name: "",
++              type: "uint8",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "to",
++              type: "address",
++            },
++            {
++              internalType: "uint256",
++              name: "amount",
++              type: "uint256",
++            },
++          ],
++          name: "mint",
++          outputs: [],
++          stateMutability: "nonpayable",
++          type: "function",
++        },
++        {
++          inputs: [],
++          name: "name",
++          outputs: [
++            {
++              internalType: "string",
++              name: "",
++              type: "string",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [],
++          name: "owner",
++          outputs: [
++            {
++              internalType: "address",
++              name: "",
++              type: "address",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [],
++          name: "renounceOwnership",
++          outputs: [],
++          stateMutability: "nonpayable",
++          type: "function",
++        },
++        {
++          inputs: [],
++          name: "symbol",
++          outputs: [
++            {
++              internalType: "string",
++              name: "",
++              type: "string",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [],
++          name: "totalSupply",
++          outputs: [
++            {
++              internalType: "uint256",
++              name: "",
++              type: "uint256",
++            },
++          ],
++          stateMutability: "view",
++          type: "function",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "to",
++              type: "address",
++            },
++            {
++              internalType: "uint256",
++              name: "value",
++              type: "uint256",
++            },
++          ],
++          name: "transfer",
++          outputs: [
++            {
++              internalType: "bool",
++              name: "",
++              type: "bool",
++            },
++          ],
++          stateMutability: "nonpayable",
++          type: "function",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "from",
++              type: "address",
++            },
++            {
++              internalType: "address",
++              name: "to",
++              type: "address",
++            },
++            {
++              internalType: "uint256",
++              name: "value",
++              type: "uint256",
++            },
++          ],
++          name: "transferFrom",
++          outputs: [
++            {
++              internalType: "bool",
++              name: "",
++              type: "bool",
++            },
++          ],
++          stateMutability: "nonpayable",
++          type: "function",
++        },
++        {
++          inputs: [
++            {
++              internalType: "address",
++              name: "newOwner",
++              type: "address",
++            },
++          ],
++          name: "transferOwnership",
++          outputs: [],
++          stateMutability: "nonpayable",
++          type: "function",
++        },
++      ],
++      inheritedFunctions: {
++        allowance:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        approve:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        balanceOf:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        cap: "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        decimals:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        name: "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        symbol:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        totalSupply:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        transfer:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        transferFrom:
++          "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol",
++        owner: "@openzeppelin/contracts/access/Ownable.sol",
++        renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
++        transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
++      },
++      deployedOnBlock: 11,
++    },
++  },
++} as const;
+ 
+ export default deployedContracts satisfies GenericContractsDeclaration;
+diff --git a/packages/nextjs/postcss.config.js b/packages/nextjs/postcss.config.js
+index e564072..483f378 100644
+--- a/packages/nextjs/postcss.config.js
++++ b/packages/nextjs/postcss.config.js
+@@ -1,5 +1,5 @@
+ module.exports = {
+   plugins: {
+-    '@tailwindcss/postcss': {},
++    "@tailwindcss/postcss": {},
+   },
+ };
+
+# Untracked files and status
+ M AGENTS.md
+ M packages/nextjs/.prettierrc.js
+ M packages/nextjs/components/Header.tsx
+ M packages/nextjs/contracts/deployedContracts.ts
+ M packages/nextjs/postcss.config.js
+?? .claude/skills/erc-20/
+?? TASK.md
+?? packages/hardhat/contracts/GoldToken.sol
+?? packages/hardhat/deploy/01_deploy_gold_token.ts
+?? packages/nextjs/app/gold-token/

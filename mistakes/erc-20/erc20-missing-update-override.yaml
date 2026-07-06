@@ -1,0 +1,15 @@
+mistake_id: erc20-missing-update-override
+skill: erc-20
+first_seen: 2026-03-18
+frequency:
+  repo_context: 3/3
+  current_skill: 2/3
+  forced_skill: 1/1
+  skill_plus_agents_md: 1/1
+category: stale-knowledge
+symptom: "Model omits the _update override that ERC20Capped requires under OZ v5 (it remembers the v4 _beforeTokenTransfer hooks), so the contract does not compile."
+expected_pattern: "Override _update(address from, address to, uint256 value) listing the parents that actually override it, per OZ v5."
+skill_section: "OpenZeppelin v5 changes to be aware of"
+status: open
+proposed_fix: "The section names _update but never shows the override pattern. Add an explicit code example (function _update(...) internal override(...) { super._update(...); }) — same fix that worked for named imports on the oz skill in PR #1245 (iteration-6 learning: the model needs to SEE patterns, not discover them)."
+notes: "Seeded from iteration-6 (scaffold-eth-2 PR #1241). The assertion set there missed it — the delta only surfaced in the grading summary's observations, which is why the new verifier asserts both update_override and compiles directly. erc20-goldtoken-001 (2026-07-04, opus 4.6): repo_context misses it 3/3 by never using ERC20Capped at all (manual cap, plain ERC20 compiles fine); current_skill run 3 recovered it through compile-error iteration, not the skill."

@@ -1,0 +1,11 @@
+mistake_id: erc20-skill-not-triggered
+skill: erc-20
+first_seen: 2026-07-04
+frequency:
+  current_skill: 3/3
+category: trigger-failure
+symptom: "Executor (opus 4.6) sees the erc-20 skill in its skill listing but never invokes it — does the task from priors instead, so none of the skill's content reaches the run."
+expected_pattern: "Skill invoked before writing the contract; its OZ v5 guidance applied (named imports, extensions, _update override)."
+skill_section: "frontmatter description"
+status: open
+notes: "erc20-goldtoken-001 first pass. Same failure class rin-st found on scaffold-eth-2 PR #1245 (opus skipped the oz skill 0/4 while sonnet picked it up 4/4; fixed there with a cross-reference from the erc-721 skill). Follow-up 2026-07-04: with --setting-sources project isolation (skill listing shrinks from ~90 to 3), the skill self-triggered 1/1 — the failure is substantially listing crowding, not the skill's description. The agents-md pointer overlay also triggered it 1/1. n=1 each; keep open until rerun at n=3."

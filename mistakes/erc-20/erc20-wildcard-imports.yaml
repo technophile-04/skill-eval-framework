@@ -1,0 +1,12 @@
+mistake_id: erc20-wildcard-imports
+skill: erc-20
+first_seen: 2026-03-18
+frequency:
+  repo_context: 3/3
+  current_skill: 3/3
+category: stale-knowledge
+symptom: "Model writes wildcard OpenZeppelin imports (import \"@openzeppelin/...\") instead of the named imports OZ v5 requires (import {ERC20} from \"...\")."
+expected_pattern: "Named imports for every OpenZeppelin contract: import {ERC20} from \"@openzeppelin/contracts/token/ERC20/ERC20.sol\"."
+skill_section: "OpenZeppelin v5 changes to be aware of"
+status: open
+notes: "Seeded from the iteration-6 re-eval (scaffold-eth-2 PR #1241, tinker-with-evaluation branch) after damianmarti's review on PR #1245 showed the original assertions missed this. Perfectly discriminating there: 3/3 with skill, 0/3 without. erc20-goldtoken-001 (2026-07-04, opus 4.6): 3/3 in BOTH variants — the skill never triggered, so its fix never got a chance to apply (see erc20-skill-not-triggered)."

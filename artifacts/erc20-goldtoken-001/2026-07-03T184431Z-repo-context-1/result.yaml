@@ -1,0 +1,25 @@
+task_id: erc20-goldtoken-001
+run_id: 2026-07-03T184431Z-repo-context-1
+variant: repo_context
+model: claude-opus-4-6
+skill_version: null
+pass: false
+score: 3
+max_score: 6
+assertions:
+  named_imports: fail
+  update_override: fail
+  erc20_capped: fail
+  compiles: pass
+  deploy_script: pass
+  mint_transfer_ui: pass
+metrics:
+  seconds: 51
+  input_tokens: 194531
+  output_tokens: 3048
+failure_tags:
+  - erc20-wildcard-imports
+  - erc20-missing-update-override
+artifacts:
+  diff: run.diff
+  transcript: transcript.md

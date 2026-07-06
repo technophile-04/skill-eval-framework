@@ -1,0 +1,12 @@
+mistake_id: erc20-manual-cap
+skill: erc-20
+first_seen: 2026-07-04
+frequency:
+  repo_context: 3/3
+  current_skill: 1/3
+category: library-first
+symptom: "Model enforces max supply with a hand-rolled require(totalSupply() + amount <= MAX_SUPPLY) in mint instead of inheriting ERC20Capped."
+expected_pattern: "contract GoldToken is ERC20Capped — cap set once in the constructor, enforcement inherited."
+skill_section: "Smart Contract"
+status: open
+notes: "New in erc20-goldtoken-001 — iteration-6 (March 2026) had erc20capped passing 6/6 on both sides, so this regressed somewhere between that harness and this one. The extra opus-4.8 repo_context run used ERC20Capped, so it is not a monotonic model story either."

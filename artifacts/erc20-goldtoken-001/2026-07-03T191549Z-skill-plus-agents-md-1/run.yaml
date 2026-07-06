@@ -1,0 +1,8 @@
+task_id: erc20-goldtoken-001
+run_id: 2026-07-03T191549Z-skill-plus-agents-md-1
+variant: skill_plus_agents_md
+created: '2026-07-03T19:15:51.224Z'
+workspace: artifacts/erc20-goldtoken-001/2026-07-03T191549Z-skill-plus-agents-md-1/workspace
+skill_version: git:0b7d2ff
+skill_installed: true
+overlay_applied: true

@@ -1,0 +1,8 @@
+task_id: erc20-goldtoken-001
+run_id: 2026-07-03T191543Z-forced-skill-1
+variant: forced_skill
+created: '2026-07-03T19:15:45.818Z'
+workspace: artifacts/erc20-goldtoken-001/2026-07-03T191543Z-forced-skill-1/workspace
+skill_version: git:0b7d2ff
+skill_installed: true
+overlay_applied: false

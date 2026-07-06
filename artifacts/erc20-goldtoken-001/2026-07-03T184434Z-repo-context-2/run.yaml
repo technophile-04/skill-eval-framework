@@ -1,0 +1,8 @@
+task_id: erc20-goldtoken-001
+run_id: 2026-07-03T184434Z-repo-context-2
+variant: repo_context
+created: '2026-07-03T18:44:35.986Z'
+workspace: artifacts/erc20-goldtoken-001/2026-07-03T184434Z-repo-context-2/workspace
+skill_version: null
+skill_installed: false
+overlay_applied: false

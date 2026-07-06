@@ -1,0 +1,14 @@
+node_modules/
+
+# executor workspaces and transcripts are machine-local; records and diffs are committed
+artifacts/**/workspace/
+artifacts/**/transcript.md
+
+# workspace seeds are regenerated, not versioned (task notes record how)
+templates/
+
+*.tsbuildinfo
+.DS_Store
+
+# yarn berry local state
+.yarn/
