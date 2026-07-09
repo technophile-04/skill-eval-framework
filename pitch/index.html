@@ -82,6 +82,11 @@
   .card .src { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--teal); margin-top: 7px; overflow-wrap: anywhere; }
   .card .src.none { color: var(--muted); }
   .card p { font-size: 15.5px; color: var(--muted); margin: 10px 0 0; }
+  .card .explab { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--amber); margin: 18px 0 10px; }
+  ul.expects { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  ul.expects li { position: relative; padding-left: 26px; font-size: 15px; color: var(--muted); line-height: 1.5; }
+  ul.expects li::before { content: attr(data-n); position: absolute; left: 0; top: 0; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--teal); }
+  ul.expects li b { color: var(--fg); font-weight: 500; }
 
   /* mermaid frame */
   .diagram { background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 26px 20px; margin-top: 8px; overflow-x: auto; }
@@ -436,6 +441,13 @@ $ curl -s 'api.coinbase.com
     <div class="tag">task drafted by the orchestrator</div>
     <h3>Build a Uniswap swap UI, USDC to WETH, on Ethereum mainnet.</h3>
     <p>Enter an amount, see the expected output, approve the token when needed, run the swap against real Uniswap contracts. The same prompt went to every arm. The only thing that changed was which skill it was told to read first.</p>
+    <div class="explab">and what the judge grades it against</div>
+    <ul class="expects">
+      <li data-n="1">The <b>canonical mainnet addresses</b>, not plausible-looking ones it made up.</li>
+      <li data-n="2">The allowance is <b>checked first</b>, and it only asks to approve when it's short.</li>
+      <li data-n="3">USDC amounts are parsed at <b>6 decimals</b>, not the usual 18.</li>
+      <li data-n="4">A <b>non-zero minimum output</b>, so the trade can't be sandwiched.</li>
+    </ul>
   </div>
 </section>
 
