@@ -376,16 +376,20 @@ flowchart TB
 <!-- 5 · WHAT THE FILES LOOK LIKE -->
 <section>
   <div class="eyebrow" data-n="06">What those files look like</div>
-  <h2 class="big reveal">A slice of each, from real runs.</h2>
-  <p class="body muted reveal">All three come out of the same run, the first one without the skill. The scorecard is tiny and readable, the diff is whatever the executor actually wrote, and the transcript is its full session with the token count at the bottom.</p>
+  <h2 class="big reveal">A slice of each.</h2>
+  <p class="body muted reveal">Trimmed to the shape of the file, with values from one real run, the first of the gas runs without the skill. The scorecard is tiny and readable, the diff is whatever the executor actually wrote, and the transcript is its full session with the token count at the bottom.</p>
   <div class="spacer"></div>
   <div class="files">
     <div class="filecard reveal">
       <div class="fname">result.yaml</div>
       <pre>task: gas-cost-estimate-001
-executor: codex
+executor: <span class="k">codex</span>
 variant: <span class="k">no_skill</span>
 skill_version: null
+judge:                <span class="cm">← who graded it</span>
+  agent: <span class="k">claude</span>
+  model: claude-opus-4-8
+  self_judged: <span class="s">false</span>
 expects:
   expect_1: <span class="s">pass</span>
   expect_2: <span class="s">pass</span>
