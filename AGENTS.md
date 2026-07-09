@@ -25,7 +25,7 @@ Then write `tasks/<id>.yaml` and run the loop. Report back at the end, not durin
 
 1. `yarn setup --task tasks/<id>.yaml --variant <no_skill|with_skill> --run <n> --executor <claude|codex>`
 2. Spawn a fresh executor in the printed workspace. Point it at `TASK.md` and nothing else.
-3. `yarn verify --run artifacts/<id>/<run-id>` — snapshots output, runs the judge, fills `result.yaml`.
+3. `yarn verify --run artifacts/<id>/<run-id> --judge-agent <claude|codex> --judge-model <model>` — snapshots output, runs the judge, fills `result.yaml`. Use the same judge for every run in the benchmark.
 4. Repeat for every variant and run.
 5. Compare. The headline is raw pass counts per variant (`with_skill 2/3 vs no_skill 0/3`). Read per-check failures, not just the aggregate.
 6. File a mistake record in `mistakes/` the first time you see a mistake. `frequency: 1/1` is honest about weak evidence; an unfiled observation is lost.
@@ -62,7 +62,15 @@ cd <workspace> && codex exec -s workspace-write "$(cat TASK.md)"
 
 Save the executor's full transcript to `<run-dir>/transcript.md`.
 
-**Judge**: a blind LLM that grades `expect:` lines from the evidence `verify` assembles (diff + output files). It never sees the variant, the skill, or the transcript. The model is pinned by `JUDGE_MODEL` in `lib/judge.ts`; keep it fixed for the length of a benchmark, and record it in the report.
+**Judge**: a fresh, blind agent that grades `expect:` lines from the evidence `verify` assembles (diff + output files). It never sees the variant, the skill, or the transcript. Claude and codex both work.
+
+Never grade from your own context. You have read the skill and the expect lines, so you cannot grade blind. `verify` spawns the judge for you; pass the agent and model **you** are running as, so the grading happens on the orchestrator's model:
+
+```bash
+yarn verify --run artifacts/<id>/<run-id> --judge-agent claude --judge-model <your model>
+```
+
+Omit `--judge-model` to let that agent's CLI pick its own default. Omit both and the judge falls back to the agent that performed the run, which means the executor grades itself; `verify` records that as `self_judged: true` and you must say so in the report. Keep one judge for the length of a benchmark. A grader that changes between runs makes `with_skill` and `no_skill` incomparable.
 
 ## Task spec
 
@@ -105,6 +113,10 @@ executor: claude
 variant: with_skill
 skill_version: 191dcc1         # git short sha of the skill source; null for no_skill
 created: 2026-07-06T09:30:00Z
+judge:                         # who graded this run
+  agent: claude
+  model: claude-opus-4-8       # null when the agent's CLI picked its own default
+  self_judged: false           # true when the executor agent also graded the run
 expects:                       # judged expect lines, in task-spec order
   expect_1: pass
   expect_2: fail
@@ -128,6 +140,8 @@ status: open                   # open | fixed | wontfix
 ```
 
 ## Reports
+
+State the executor, the judge, and the run count at the top of every report. If any run came back `self_judged: true`, say so there.
 
 Every report ends with this table. Answer the last row honestly: sometimes the eval is the wrong artifact, not the skill.
 

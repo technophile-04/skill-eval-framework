@@ -19,7 +19,7 @@ It reads `AGENTS.md`, drafts a task from the skill and shows it to you, drafts t
 There is no runner. Whatever coding agent you already drive orchestrates the benchmark loop — `AGENTS.md` is the full playbook, including every record schema. Two small scripts guard the steps where improvisation would corrupt results:
 
 - `yarn setup` builds a clean workspace for one run: task prompt in, skill installed (or not), and a hard fail if any grading material would leak in.
-- `yarn verify` grades a finished run: snapshots the output, has a blind LLM judge grade the task's `expect:` lines against it, and writes `result.yaml`. The judge model is pinned by `JUDGE_MODEL` in `lib/judge.ts`.
+- `yarn verify` grades a finished run: snapshots the output, has a blind LLM judge grade the task's `expect:` lines against it, and writes `result.yaml`. No model is baked in — the orchestrator passes `--judge-agent` and `--judge-model`, and `result.yaml` records which judge graded which run.
 
 Executors are pluggable: `--executor claude` or `--executor codex`. Skills install at the cross-agent standard `.agents/skills/` (codex reads it natively; claude runs get a bridge copy at `.claude/skills/`).
 
@@ -43,7 +43,7 @@ scripts/      setup and verify
 ```bash
 yarn setup --task tasks/<id>.yaml --variant no_skill --run 1 --executor claude
 # spawn a fresh executor in the printed workspace (spawn commands in AGENTS.md)
-yarn verify --run artifacts/<id>/<run-id>
+yarn verify --run artifacts/<id>/<run-id> --judge-agent claude --judge-model <model>
 ```
 
 Repeat per variant and run count, then compare `result.yaml`s and write the report. You don't normally type these — the orchestrator does. `AGENTS.md` has the full loop, the intake conversation, and the mistake-record format.
