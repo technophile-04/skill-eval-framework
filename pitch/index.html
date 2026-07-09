@@ -278,7 +278,7 @@ flowchart LR
   SU -->|"TASK.md + skill"| W["clean workspace"]:::gray
   EX["fresh executor<br/>codex / claude"]:::gray -->|"builds the thing"| W
   W --> VF["verify"]:::gray
-  VF -->|"evidence + checks"| J["blind judge"]:::ok
+  VF -->|"evidence + checks"| J["blind judge<br/>codex / claude"]:::ok
   J --> R["result.yaml<br/>pass / fail"]:::acc
   classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
   classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
@@ -311,6 +311,8 @@ flowchart LR
   </div>
   <div class="spacer"></div>
   <p class="body muted reveal">The orchestrator builds the workspace, then a fresh executor does the research and writes <span class="mono">answer.md</span>. Verify and the blind judge read that same workspace and write <span class="mono">result.yaml</span>. The executor never sees how it'll be graded, and the judge never sees which skill was in play. That separation is the whole reason the score means anything.</p>
+  <div class="spacer"></div>
+  <p class="body muted reveal">The judge is a fresh agent too, not the orchestrator thinking about its own work. It runs on whatever model you're driving, codex or claude, and <span class="mono">result.yaml</span> writes down which one graded which run. Two runs graded by different models aren't two data points, so the record has to say.</p>
 </section>
 
 <!-- 3 · WITH SKILL VS WITHOUT -->
