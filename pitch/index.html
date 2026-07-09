@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>skill-eval-framework — a walk-through</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #12131A;
+    --ink-2: #191B24;
+    --surface: #1E212C;
+    --line: #2C2F3C;
+    --fg: #ECEAE3;
+    --muted: #8B8E9E;
+    --amber: #E8B24C;
+    --teal: #4FD1C5;
+    --coral: #E8705C;
+    --maxw: 1000px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--ink); color: var(--fg);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 18px; line-height: 1.62; -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  h1, h2, h3 { font-family: "Space Grotesk", sans-serif; font-weight: 700; line-height: 1.08; margin: 0; }
+  a { color: var(--teal); }
+
+  section { max-width: var(--maxw); margin: 0 auto; padding: 7.5vh 28px; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: none; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--amber); display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  }
+  .eyebrow::before {
+    content: attr(data-n); color: var(--ink); background: var(--amber); font-weight: 600;
+    padding: 2px 8px; border-radius: 3px; letter-spacing: 0.05em;
+  }
+  h2.big { font-size: clamp(27px, 4.4vw, 42px); letter-spacing: -0.01em; margin-bottom: 18px; }
+  p.body { max-width: 66ch; color: var(--fg); }
+  p.body.muted { color: var(--muted); }
+  p.body + p.body { margin-top: 14px; }
+  strong { font-weight: 600; color: var(--fg); }
+  .amber { color: var(--amber); } .teal { color: var(--teal); } .coral { color: var(--coral); }
+  .spacer { height: 14px; }
+
+  /* intro */
+  .intro { border-top: none; padding-top: 8vh; padding-bottom: 6vh; }
+  .intro .kicker { font-family: "IBM Plex Mono", monospace; font-size: 13px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--muted); margin-bottom: 18px; }
+  .repolink { display: inline-flex; align-items: center; gap: 9px; font-family: "IBM Plex Mono", monospace; font-size: 14px; color: var(--teal); text-decoration: none; background: var(--ink-2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; margin-bottom: 28px; transition: border-color 160ms ease; }
+  .repolink::before { content: "↗"; color: var(--amber); }
+  .repolink:hover { border-color: var(--teal); }
+  .intro h1 { font-size: clamp(32px, 5.4vw, 58px); letter-spacing: -0.02em; max-width: 20ch; }
+  .intro .sub { margin-top: 24px; font-size: clamp(17px, 2.1vw, 21px); color: var(--muted); max-width: 64ch; line-height: 1.55; }
+  .intro .sub b { color: var(--fg); font-weight: 500; }
+  .intro .sub .hi { color: var(--amber); font-weight: 500; }
+
+  /* the mold visual — paint-by-numbers frame */
+  .mold { margin-top: 20px; }
+  .mold-frame { border: 2px dashed var(--amber); border-radius: 14px; padding: 20px; background: rgba(232,178,76,0.035); }
+  .mold-lab { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--amber); margin-bottom: 16px; }
+  .mold-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 640px) { .mold-cells { grid-template-columns: repeat(2, 1fr); } }
+  .cell { position: relative; background: var(--ink-2); border: 1px solid var(--line); border-radius: 8px; padding: 20px 14px 16px; font-family: "IBM Plex Mono", monospace; font-size: 15px; color: var(--fg); text-align: center; }
+  .cell .n { position: absolute; top: 7px; left: 10px; font-size: 11px; color: var(--teal); }
+  .cell small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .mold-arrow { margin-top: 15px; font-size: 15.5px; color: var(--muted); display: flex; align-items: flex-start; gap: 10px; }
+  .mold-arrow::before { content: "\21B3"; color: var(--amber); font-size: 18px; line-height: 1.2; }
+
+  /* cards */
+  .row { display: grid; gap: 18px; }
+  @media (min-width: 740px) { .cols-3 { grid-template-columns: repeat(3, 1fr); } }
+  .card { background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
+  .card .tag { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+  .card h3 { font-size: 20px; margin: 8px 0 0; }
+  .card p { font-size: 15.5px; color: var(--muted); margin: 10px 0 0; }
+
+  /* mermaid frame */
+  .diagram { background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 26px 20px; margin-top: 8px; overflow-x: auto; }
+  .diagram .cap { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 14px; text-align: center; }
+  pre.mermaid { margin: 0; text-align: center; }
+  pre.mermaid:not([data-processed]) { color: transparent; min-height: 40px; }
+
+  /* terminal */
+  .term { background: #0C0D12; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-family: "IBM Plex Mono", monospace; font-size: 15px; }
+  .term .bar { display: flex; gap: 7px; padding: 12px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+  .term .bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--line); display: inline-block; }
+  .term .bar span { margin-left: 10px; color: var(--muted); font-size: 12px; letter-spacing: 0.1em; }
+  .term .body { padding: 20px 18px; line-height: 1.7; }
+  .term .u { color: var(--fg); } .term .prompt-mark { color: var(--amber); }
+
+  /* code */
+  pre.code { background: #0C0D12; border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: 8px; padding: 15px 18px; overflow-x: auto; font-family: "IBM Plex Mono", monospace; font-size: 13.5px; line-height: 1.6; color: #C9CBD6; margin: 0; }
+  pre.code .k { color: var(--amber); } pre.code .s { color: var(--teal); } pre.code .cm { color: var(--muted); }
+
+  /* file example cards */
+  .files { display: grid; gap: 16px; margin-top: 8px; }
+  @media (min-width: 840px) { .files { grid-template-columns: repeat(3, 1fr); align-items: start; } }
+  .filecard { background: #0C0D12; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .filecard .fname { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); padding: 11px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 9px; }
+  .filecard .fname::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex: none; }
+  .filecard.diff .fname::before { background: var(--teal); }
+  .filecard.tr .fname::before { background: var(--coral); }
+  .filecard pre { margin: 0; padding: 14px; font-family: "IBM Plex Mono", monospace; font-size: 12px; line-height: 1.62; color: #C9CBD6; overflow-x: auto; white-space: pre; }
+  .filecard pre .s { color: var(--teal); } .filecard pre .add { color: var(--teal); } .filecard pre .cm { color: var(--muted); } .filecard pre .k { color: var(--amber); }
+
+  /* workspace before/after (two boxes) */
+  .ws { display: grid; gap: 16px; margin-top: 8px; }
+  @media (min-width: 760px) { .ws { grid-template-columns: 1fr 1fr; } }
+
+  /* fundamentals */
+  .fund { display: grid; gap: 16px; margin-top: 8px; }
+  .fund .item { display: grid; grid-template-columns: 1fr; gap: 12px; background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+  @media (min-width: 780px) { .fund .item { grid-template-columns: 0.82fr 1.18fr; align-items: center; } }
+  .fund .item h3 { font-size: 18px; display: flex; gap: 10px; align-items: baseline; }
+  .fund .item h3 .num { font-family: "IBM Plex Mono", monospace; color: var(--teal); font-size: 14px; }
+  .fund .item p { margin: 6px 0 0; font-size: 15px; color: var(--muted); }
+
+  .callout { border: 1px solid var(--line); border-left: 3px solid var(--teal); background: var(--ink-2); border-radius: 8px; padding: 18px 22px; }
+  .callout b { color: var(--teal); }
+
+  /* scores */
+  .scores { display: grid; gap: 16px; }
+  @media (min-width: 720px) { .scores { grid-template-columns: repeat(3, 1fr); } }
+  .scores.two { max-width: 560px; }
+  @media (min-width: 720px) { .scores.two { grid-template-columns: repeat(2, 1fr); } }
+  .score { text-align: center; background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 24px 18px; }
+  .score .name { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+  .score .val { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 44px; color: var(--teal); margin: 8px 0 2px; }
+  .score .of { font-size: 13px; color: var(--muted); }
+
+  /* meter */
+  .meter { display: flex; flex-direction: column; gap: 28px; margin-top: 10px; }
+  .meter .arm .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; flex-wrap: wrap; gap: 4px; }
+  .meter .arm .head b { font-family: "Space Grotesk", sans-serif; font-size: 19px; }
+  .meter .arm .head .id { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 64px 1fr; gap: 10px 14px; align-items: center; }
+  .glab { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); text-align: right; }
+  .track { position: relative; height: 32px; background: var(--ink-2); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .track .fill { position: absolute; inset: 0 auto 0 0; width: 0; transition: width 1000ms cubic-bezier(.2,.7,.2,1); display: flex; align-items: center; }
+  .track .fill.tok { background: linear-gradient(90deg, rgba(232,178,76,.20), rgba(232,178,76,.40)); border-right: 2px solid var(--amber); }
+  .track .fill.tok .lab { color: var(--amber); }
+  .track .fill.score { background: linear-gradient(90deg, rgba(79,209,197,.16), rgba(79,209,197,.32)); border-right: 2px solid var(--teal); }
+  .track .fill.score .lab { color: var(--teal); }
+  .track .fill .lab { margin-left: auto; padding: 0 12px; font-family: "IBM Plex Mono", monospace; font-size: 13px; white-space: nowrap; }
+  .meter .note { margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .meter .note .waste { color: var(--coral); }
+
+  /* chat */
+  .chat { display: flex; flex-direction: column; gap: 16px; }
+  .bubble { max-width: 84%; padding: 15px 18px; border-radius: 14px; font-size: 16px; }
+  .bubble.q { align-self: flex-end; background: var(--surface); border: 1px solid var(--line); border-bottom-right-radius: 4px; }
+  .bubble.a { align-self: flex-start; background: var(--ink-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; color: var(--muted); }
+  .bubble.a strong { color: var(--fg); }
+  .bubble .who { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
+  .bubble.q .who { color: var(--muted); } .bubble.a .who { color: var(--amber); }
+  table.tok { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 15px; }
+  table.tok th, table.tok td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  table.tok th { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  table.tok td.num { font-family: "IBM Plex Mono", monospace; text-align: right; }
+  table.tok tr.win td { color: var(--fg); } table.tok tr.win td:first-child { color: var(--teal); }
+  table.tok .flag { color: var(--coral); }
+
+  .foot { color: var(--muted); font-size: 14px; font-family: "IBM Plex Mono", monospace; text-align: center; padding: 56px 20px 80px; border-top: 1px solid var(--line); max-width: var(--maxw); margin: 0 auto; }
+
+  .reveal { opacity: 0; transform: translateY(12px); transition: opacity 560ms ease, transform 560ms ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .track .fill { transition: none; }
+  }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+</style>
+</head>
+<body>
+
+<!-- INTRO · THE PROMPT -->
+<section class="intro">
+  <div class="kicker">skill-eval-framework · a walk-through</div>
+  <a class="repolink" href="https://github.com/technophile-04/skill-eval-framework">github.com/technophile-04/skill-eval-framework</a>
+  <h1>You want to know if a skill is worth it. You ask.</h1>
+  <p class="sub">That's the whole interface. You point your agent at a skill and tell it to check, and it runs the entire benchmark itself. No config, no harness to wire up. Here's a real one, checking the <b>gas</b> skill:</p>
+  <div class="spacer"></div>
+  <div class="term reveal">
+    <div class="bar"><i></i><i></i><i></i><span>you → your agent</span></div>
+    <div class="body">
+      <div><span class="prompt-mark">›</span> <span class="u">Let's eval the <strong>gas</strong> skill. Run it on codex, with the skill and without.</span></div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <p class="sub" style="margin-top:0">You tell it which executor to use, codex or claude today, with opencode on the way. Everything after this line, the agent does on its own.</p>
+</section>
+
+<!-- 1 · THE GAS TASK + EXPECTATIONS -->
+<section>
+  <div class="eyebrow" data-n="01">The task it drafted</div>
+  <h2 class="big reveal">From your ask, it writes the task and the checks.</h2>
+  <p class="body muted reveal">The gas skill exists to fix one stale habit: models quote Ethereum gas at 10 to 30 gwei from memory, when these days it's under 1 gwei. So the agent drafts a task that would catch exactly that, along with the checks a blind judge will grade against. You sanity-check it once, then it's out of your hands.</p>
+  <div class="spacer"></div>
+  <div class="card reveal" style="border-left:3px solid var(--amber)">
+    <div class="tag">task drafted by the orchestrator</div>
+    <h3>Estimate what an ERC-20 transfer costs on mainnet right now, in USD. Write it to answer.md.</h3>
+    <p>A question-shaped task, no repo, just an answer written to a file. The same prompt runs with the gas skill installed and without it.</p>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">And the four checks, concrete enough that the judge can't be talked into a pass. Every value below is from the actual run.</p>
+  <div class="spacer"></div>
+  <div class="fund">
+    <div class="item reveal">
+      <div><h3><span class="num">01</span> A real dollar estimate</h3><p>answer.md gives a specific USD cost for an ERC-20 transfer on Ethereum mainnet.</p></div>
+      <pre class="code">ERC-20 transfer ≈ <span class="s">$0.013</span></pre>
+    </div>
+    <div class="item reveal">
+      <div><h3><span class="num">02</span> A live gas price, not the stale one</h3><p>Sub-1-gwei, checked live, not the 10 to 30 gwei training prior.</p></div>
+      <pre class="code">gas price: <span class="s">0.146 gwei</span> <span class="cm">// from a live RPC</span></pre>
+    </div>
+    <div class="item reveal">
+      <div><h3><span class="num">03</span> A fetched ETH price</h3><p>The ETH/USD used was pulled from a live source, not quoted from memory.</p></div>
+      <pre class="code">ETH/USD: <span class="s">$1,731.65</span> <span class="cm">// coinbase spot</span></pre>
+    </div>
+    <div class="item reveal">
+      <div><h3><span class="num">04</span> The arithmetic shown</h3><p>The dollar figure is derived as gas units × gas price × ETH price, with the math visible.</p></div>
+      <pre class="code">50,000 × 0.146 gwei × $1,731 / 1e18 = <span class="s">$0.013</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · HOW A RUN WORKS -->
+<section>
+  <div class="eyebrow" data-n="02">How a single run works</div>
+  <h2 class="big reveal">The agent runs the whole thing itself.</h2>
+  <p class="body muted reveal">There's no separate benchmark tool you configure. Your agent, playing orchestrator, reads one <span class="mono">AGENTS.md</span> to learn the repo, then drives the run: it sets up a clean workspace, spawns a fresh executor to do the task, and grades the output with a blind judge. Two small scripts guard the steps where sloppiness would quietly corrupt the numbers.</p>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">one task, one arm, start to finish</div>
+    <pre class="mermaid">
+flowchart LR
+  O["your agent<br/>(orchestrator)"]:::acc --> SU["setup"]:::gray
+  SU -->|"TASK.md + skill"| W["clean workspace"]:::gray
+  EX["fresh executor<br/>codex / claude"]:::gray -->|"builds the thing"| W
+  W --> VF["verify"]:::gray
+  VF -->|"evidence + checks"| J["blind judge"]:::ok
+  J --> R["result.yaml<br/>pass / fail"]:::acc
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
+    </pre>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">Here's what that workspace actually looks like: the clean room the orchestrator sets up, and what's in it once the run is done.</p>
+  <div class="spacer"></div>
+  <div class="ws">
+    <div class="filecard reveal">
+      <div class="fname">the orchestrator sets up a clean room</div>
+      <pre>workspace/
+├─ <span class="k">TASK.md</span>            <span class="cm">the task</span>
+└─ .agents/skills/
+   └─ <span class="k">gas/</span>            <span class="cm">the skill</span>
+
+<span class="cm"># nothing about how it's</span>
+<span class="cm"># graded lives in here</span></pre>
+    </div>
+    <div class="filecard diff reveal">
+      <div class="fname">then the run fills it in</div>
+      <pre>run/
+├─ workspace/
+│  ├─ TASK.md
+│  └─ <span class="add">answer.md</span>       <span class="cm">← executor writes</span>
+├─ <span class="add">result.yaml</span>        <span class="cm">← judge grades</span>
+└─ transcript.md      <span class="cm">← full session</span></pre>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">The orchestrator builds the workspace, then a fresh executor does the research and writes <span class="mono">answer.md</span>. Verify and the blind judge read that same workspace and write <span class="mono">result.yaml</span>. The executor never sees how it'll be graded, and the judge never sees which skill was in play. That separation is the whole reason the score means anything.</p>
+</section>
+
+<!-- 3 · WITH SKILL VS WITHOUT -->
+<section>
+  <div class="eyebrow" data-n="03">Both ways, then compare</div>
+  <h2 class="big reveal">Run it with the skill, and without.</h2>
+  <p class="body muted reveal">That's one run. To actually test the skill, the framework runs the whole task twice over: three times with the gas skill installed, three times without. Six fresh executors, six clean workspaces, one report at the end.</p>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">one task, two variants, six runs, one report</div>
+    <pre class="mermaid">
+flowchart TB
+  Y["you: point at a skill<br/>+ approve the task"]:::gray --> T["1 task.yaml"]:::acc
+  T --> N["no_skill<br/>run 1 · 2 · 3"]:::gray
+  T --> S["with_skill<br/>run 1 · 2 · 3"]:::gray
+  N --> RN["3 result.yaml"]:::ok
+  S --> RS["3 result.yaml"]:::ok
+  RN --> REP["1 report<br/>+ mistake records"]:::acc
+  RS --> REP
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
+    </pre>
+  </div>
+  <div class="spacer"></div>
+  <div class="scores two">
+    <div class="score reveal"><div class="name">no_skill</div><div class="val">4/4</div><div class="of">without the gas skill</div></div>
+    <div class="score reveal"><div class="name">with_skill</div><div class="val">4/4</div><div class="of">with the gas skill</div></div>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">Both sides came back 4/4. On gpt-5.5 the model already checks a live gas price on its own, so the skill's knowledge was correct but not needed here. Knowing a skill is redundant for a given model is a real result, and it's the kind of thing you only find by measuring.</p>
+</section>
+
+<!-- 4 · WHAT'S LEFT ON DISK -->
+<section>
+  <div class="eyebrow" data-n="04">What each run writes down</div>
+  <h2 class="big reveal">Every run leaves a paper trail.</h2>
+  <p class="body muted reveal">This is the part that makes the framework useful after the fact. The executor and the verify step don't just print a score, they write files. The built output lands in <strong class="mono">output/</strong>, the executor's full session (tokens, turns, everything it tried) in <strong class="mono">transcript.md</strong>, and the graded scorecard in <strong class="mono">result.yaml</strong>. Nothing is thrown away.</p>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">the artifacts, and why they matter</div>
+    <pre class="mermaid">
+flowchart TB
+  EX["fresh executor"]:::gray --> OUT["output/<br/>what it built"]:::ok
+  EX --> TR["transcript.md<br/>tokens · turns · full session"]:::ok
+  VF["verify + judge"]:::gray --> RES["result.yaml<br/>score per check"]:::acc
+  VF --> DIFF["run.diff<br/>what changed"]:::ok
+  OUT --> Q(["all of it stays on disk,<br/>so you can go back and ask more"]):::acc
+  TR --> Q
+  RES --> Q
+  DIFF --> Q
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
+    </pre>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">Keep this in mind, because near the end we just keep asking the orchestrator questions, and this is why we can. The answers were sitting in these files the whole time.</p>
+</section>
+
+<!-- 5 · WHAT THE FILES LOOK LIKE -->
+<section>
+  <div class="eyebrow" data-n="05">What those files look like</div>
+  <h2 class="big reveal">A slice of each, from real runs.</h2>
+  <p class="body muted reveal">Not the whole thing, just enough to see the shape. The scorecard is tiny and readable, the diff is the code the executor actually wrote, and the transcript is its full session with the token count at the bottom.</p>
+  <div class="spacer"></div>
+  <div class="files">
+    <div class="filecard reveal">
+      <div class="fname">result.yaml</div>
+      <pre>task: gas-cost-estimate-001
+executor: codex
+variant: <span class="k">with_skill</span>
+skill_version: 3daee58
+expects:
+  expect_1: <span class="s">pass</span>
+  expect_2: <span class="s">pass</span>
+  expect_3: <span class="s">pass</span>
+  expect_4: <span class="s">pass</span>
+pass: <span class="s">true</span></pre>
+    </div>
+    <div class="filecard diff reveal">
+      <div class="fname">run.diff</div>
+      <pre><span class="add">+ const swapRouter02Abi = [</span>
+<span class="add">+   { name: "amountOutMinimum",</span>
+<span class="add">+     type: "uint256" }, ...</span>
+<span class="add">+ ];</span>
+<span class="add">+ name: "approve",</span>
+<span class="add">+ name: "allowance",</span>
+<span class="add">+ name: "decimals",</span>
+<span class="cm">  ...342 more lines</span></pre>
+    </div>
+    <div class="filecard tr reveal">
+      <div class="fname">transcript.md</div>
+      <pre>I'll pull live gas and
+ETH/USD data first, then
+write the calc to answer.md.
+
+$ curl -s '.../simple/price
+  ?ids=ethereum&amp;vs=usd'
+  → { "usd": 1731.65 }
+...
+<span class="s">tokens used: 33,544</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · THE SECOND QUESTION (swap) -->
+<section>
+  <div class="eyebrow" data-n="06">A second, bigger question</div>
+  <h2 class="big reveal">Now bend it into a three-way compare.</h2>
+  <p class="body muted reveal">The gas run is the framework on home turf: one skill, with and without. But the same base bends. Here we asked it to compare two different skills against a plain agent, and it reshaped the run into three arms. Same prompt in, no task file written by hand:</p>
+  <div class="spacer"></div>
+  <div class="term reveal">
+    <div class="bar"><i></i><i></i><i></i><span>you → your agent</span></div>
+    <div class="body">
+      <div><span class="prompt-mark">›</span> <span class="u">Compare whether the <strong>ethskills</strong> knowledge skill or the <strong>Scaffold-ETH docs</strong> skill actually makes an agent build a better app, versus giving it <strong>nothing at all</strong>. Use the framework, run it on codex.</span></div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">From that, the agent drafted the task. We never told it what to build, it picked the app itself:</p>
+  <div class="spacer"></div>
+  <div class="card reveal" style="border-left:3px solid var(--amber)">
+    <div class="tag">task drafted by the orchestrator</div>
+    <h3>Build a Uniswap swap UI, USDC to WETH, on Ethereum mainnet.</h3>
+    <p>Enter an amount, see the expected output, approve the token when needed, run the swap against real Uniswap contracts. The same prompt went to every arm. The only thing that changed was which skill it was told to read first.</p>
+  </div>
+</section>
+
+<!-- 7 · THE THREE ARMS -->
+<section>
+  <div class="eyebrow" data-n="07">The three versions we compared</div>
+  <h2 class="big reveal">Same task, different cheat-sheet.</h2>
+  <p class="body muted reveal">Three fresh agents, one variable between them: what each was told to read before it started building.</p>
+  <div class="spacer"></div>
+  <div class="row cols-3">
+    <div class="card reveal"><div class="tag">the control</div><h3>bare</h3><p>No skill at all. This is the one we actually cared about: is the agent already good enough on its own?</p></div>
+    <div class="card reveal"><div class="tag">a procedure</div><h3>SE-2 docs</h3><p>Follow the Scaffold-ETH docs. It's a how-to more than knowledge: scaffold the project, read the guide, build.</p></div>
+    <div class="card reveal"><div class="tag">knowledge</div><h3>ethskills</h3><p>Follow ethskills.com, a library of contract addresses, security notes, and DeFi facts to pull from.</p></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">one task fans out into three graded runs</div>
+    <pre class="mermaid">
+flowchart TB
+  T["one task<br/>Uniswap swap UI"]:::acc --> B["bare"]:::gray
+  T --> S["SE-2 docs"]:::gray
+  T --> E["ethskills"]:::gray
+  B --> RB["result.yaml"]:::ok
+  S --> RS["result.yaml"]:::ok
+  E --> RE["result.yaml"]:::ok
+  RB --> REP["one report<br/>comparing all three"]:::acc
+  RS --> REP
+  RE --> REP
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
+    </pre>
+  </div>
+</section>
+
+<!-- 8 · THE FUNDAMENTALS -->
+<section>
+  <div class="eyebrow" data-n="08">What the judge checked</div>
+  <h2 class="big reveal">Four things a good swap app gets right.</h2>
+  <p class="body muted reveal">The orchestrator wrote these into the task, concrete enough that the blind judge can't be talked into a pass. Every snippet below is real code one of the agents actually wrote.</p>
+  <div class="spacer"></div>
+  <div class="fund">
+    <div class="item reveal">
+      <div><h3><span class="num">01</span> Real contract addresses</h3><p>The canonical mainnet ones, not something plausible-looking it made up. A wrong address here loses real money.</p></div>
+      <pre class="code"><span class="k">const</span> SWAP_ROUTER = <span class="s">"0x68b3…Fc45"</span>; <span class="cm">// Uniswap SwapRouter02</span>
+USDC: { address: <span class="s">"0xA0b8…eB48"</span>, decimals: <span class="k">6</span>  },
+WETH: { address: <span class="s">"0xC02a…6Cc2"</span>, decimals: <span class="k">18</span> },</pre>
+    </div>
+    <div class="item reveal">
+      <div><h3><span class="num">02</span> A correct approve step</h3><p>Check the allowance first, only ask for an approve when it's actually short, then let the swap through.</p></div>
+      <pre class="code"><span class="k">const</span> hasEnoughAllowance = selectedAllowance >= amountIn;
+<span class="cm">// show Approve only when short, otherwise Swap</span>
+{!hasEnoughAllowance ? &lt;Approve/&gt; : &lt;Swap/&gt;}</pre>
+    </div>
+    <div class="item reveal">
+      <div><h3><span class="num">03</span> The USDC decimals quirk</h3><p>USDC is 6 decimals, not the usual 18. Get it wrong and every amount is off by a factor of a trillion.</p></div>
+      <pre class="code"><span class="cm">// parsed with the token's real decimals</span>
+<span class="k">const</span> amount = parseUnits(trimmed, decimals); <span class="cm">// 6 for USDC</span></pre>
+    </div>
+    <div class="item reveal">
+      <div><h3><span class="num">04</span> Slippage protection</h3><p>Set a minimum output, or a bot can sandwich the trade and skim the difference. Never pass zero here.</p></div>
+      <pre class="code"><span class="k">const</span> amountOutMinimum =
+  quoteAmountOut * (BPS_DENOMINATOR - <span class="k">BigInt</span>(slippageBps)) / BPS_DENOMINATOR;</pre>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="callout reveal" style="border-left-color:var(--amber)">
+    <b style="color:var(--amber)">Worth clarifying one thing.</b> Nobody wrote a smart contract here. A swap UI can call Uniswap's contracts directly, so all of this is frontend code, and the agents figured that out on their own. We never said "don't write a contract," they just knew a custom one wasn't needed.
+  </div>
+</section>
+
+<!-- 9 · WHAT CAME OUT -->
+<section>
+  <div class="eyebrow" data-n="09">What came out</div>
+  <h2 class="big reveal">All three passed every check.</h2>
+  <p class="body muted reveal">On codex with gpt-5.5, the fundamentals came out right whether the agent read a skill or not.</p>
+  <div class="spacer"></div>
+  <div class="scores">
+    <div class="score reveal"><div class="name">bare</div><div class="val">4/4</div><div class="of">no skill</div></div>
+    <div class="score reveal"><div class="name">SE-2 docs</div><div class="val">4/4</div><div class="of">procedure</div></div>
+    <div class="score reveal"><div class="name">ethskills</div><div class="val">4/4</div><div class="of">knowledge</div></div>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">A tie on the scorecard doesn't mean three identical apps, though. It means everyone cleared the same floor. What separated them was how much it took to get there.</p>
+</section>
+
+<!-- 10 · WHAT IT COST -->
+<section>
+  <div class="eyebrow" data-n="10">What it cost</div>
+  <h2 class="big reveal">Same score, different amount of work.</h2>
+  <p class="body muted reveal">Score bars are identical. Token bars aren't, and that difference is the interesting part.</p>
+  <div class="spacer"></div>
+  <div class="meter">
+    <div class="arm reveal">
+      <div class="head"><b>SE-2 docs</b><span class="id">424 lines · modern router</span></div>
+      <div class="grid2">
+        <div class="glab">score</div><div class="track"><div class="fill score" data-w="100%"><span class="lab">4 / 4</span></div></div>
+        <div class="glab">tokens</div><div class="track"><div class="fill tok" data-w="76%"><span class="lab">188,001</span></div></div>
+      </div>
+      <div class="note">the cheapest run, and it still reached for the modern SwapRouter02.</div>
+    </div>
+    <div class="arm reveal">
+      <div class="head"><b>bare</b><span class="id">346 lines · older router</span></div>
+      <div class="grid2">
+        <div class="glab">score</div><div class="track"><div class="fill score" data-w="100%"><span class="lab">4 / 4</span></div></div>
+        <div class="glab">tokens</div><div class="track"><div class="fill tok" data-w="83%"><span class="lab">205,137</span></div></div>
+      </div>
+      <div class="note">no skill, still a correct app. Its one soft miss was reaching for the older V3 router.</div>
+    </div>
+    <div class="arm reveal">
+      <div class="head"><b>ethskills</b><span class="id">542 lines · modern router + slippage tiers</span></div>
+      <div class="grid2">
+        <div class="glab">score</div><div class="track"><div class="fill score" data-w="100%"><span class="lab">4 / 4</span></div></div>
+        <div class="glab">tokens</div><div class="track"><div class="fill tok" data-w="100%"><span class="lab">246,332</span></div></div>
+      </div>
+      <div class="note"><span class="waste">It read 35 skill pages to build one swap screen</span>, including Noir (zero-knowledge privacy), indexing, and gas. A swap needs maybe two of them.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 · ASK THE RUNS -->
+<section>
+  <div class="eyebrow" data-n="11">Asking the runs questions</div>
+  <h2 class="big reveal">Once it's on disk, you just keep asking.</h2>
+  <p class="body muted reveal">Remember the paper trail from earlier. Because the transcripts and result files are all sitting there, the orchestrator can answer follow-ups without re-running anything.</p>
+  <div class="spacer"></div>
+  <div class="chat">
+    <div class="bubble q reveal"><div class="who">you</div>Give me the tokens. Did all three really tie?</div>
+    <div class="bubble a reveal">
+      <div class="who">orchestrator</div>
+      Yes, <strong>4/4 across the board.</strong> Here's what each spent getting there, pulled from the transcripts:
+      <table class="tok">
+        <tr><th>arm</th><th>tokens</th><th>pages read</th><th>run time</th></tr>
+        <tr class="win"><td>SE-2 docs</td><td class="num">188,001</td><td class="num">0</td><td class="num">~14 min</td></tr>
+        <tr><td>bare</td><td class="num">205,137</td><td class="num">0</td><td class="num">~16 min</td></tr>
+        <tr><td>ethskills</td><td class="num">246,332</td><td class="num flag">35</td><td class="num">~15 min</td></tr>
+      </table>
+    </div>
+    <div class="bubble q reveal"><div class="who">you</div>So did the skill add to the agent's knowledge, or just bloat it?</div>
+    <div class="bubble a reveal">
+      <div class="who">orchestrator</div>
+      On a strong model doing a common task, mostly bloat. ethskills spent <strong>31% more tokens</strong> and read 35 pages, most of them unrelated to swaps, to land on the <strong>same 4/4</strong>. The plain scaffold docs matched it for <strong>24% fewer tokens</strong> and even picked the newer router. The knowledge wasn't wrong, gpt-5.5 just already knew it.
+    </div>
+    <div class="bubble q reveal"><div class="who">you</div>When would that knowledge actually pay off?</div>
+    <div class="bubble a reveal">
+      <div class="who">orchestrator</div>
+      A weaker model that gets addresses wrong on its own, a harder task the model hasn't seen, or if the skill scoped its reading instead of touring all 35 pages. That's a good next run, and I'd reshape the framework to set it up.
+    </div>
+  </div>
+</section>
+
+<!-- 12 · THE MISTAKE LOOP -->
+<section>
+  <div class="eyebrow" data-n="12">When a skill misses</div>
+  <h2 class="big reveal">Bad runs turn into notes on the skill.</h2>
+  <p class="body muted reveal">A tie is the boring case. The framework earns its keep when a skill fails, because it writes down <em>why</em>. When an executor gets something wrong, that goes into a mistake record: what broke, how often, and which part of the skill should have caught it. That record is the thing you act on next.</p>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">the loop you run a skill through over time</div>
+    <pre class="mermaid">
+flowchart LR
+  WS["write / edit<br/>the skill"]:::acc --> RUN["run the framework"]:::gray
+  RUN --> M["mistake record<br/>what went wrong"]:::ok
+  M --> UP["patch the skill<br/>at the weak spot"]:::acc
+  UP --> RUN
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
+    </pre>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">This swap run didn't produce any, since everyone passed. But an earlier gas-price skill run did: the model kept quoting a stale ETH price from memory, we logged it, and it pointed straight at the section of the skill to fix. Scores tell you if a skill helped. Mistake records tell you what to write next.</p>
+</section>
+
+<!-- 13 · WHY IT'S BUILT THIS WAY (mold + base) -->
+<section>
+  <div class="eyebrow" data-n="13">Why it's built this way</div>
+  <h2 class="big reveal">We built a mold, and handed it to the agent.</h2>
+  <p class="body muted reveal">There are plenty of eval frameworks already. We read through them, then went the other way. Instead of one more feature-heavy harness, we cut it down to the smallest frame that still runs a fair benchmark: how a task runs, how a fresh executor performs it, how a blind judge grades it, what gets written down. Those are the lines. Everything inside them the agent fills in, and when an eval needs a different shape, it just moves a line. It's paint-by-numbers, we drew the outline and the agent paints, free to redraw. In Hindi you'd call the frame a <em>khaka</em>, a mold.</p>
+  <div class="mold reveal">
+    <div class="mold-frame">
+      <div class="mold-lab">the block we hand over · the fixed lines</div>
+      <div class="mold-cells">
+        <div class="cell"><span class="n">1</span>task<small>what to build</small></div>
+        <div class="cell"><span class="n">2</span>executor<small>a fresh agent</small></div>
+        <div class="cell"><span class="n">3</span>judge<small>grades it blind</small></div>
+        <div class="cell"><span class="n">4</span>result<small>written down</small></div>
+      </div>
+    </div>
+    <div class="mold-arrow">the agent paints inside these lines, and moves one when the eval needs it. We already thought through how the executor runs and how the judge runs, so it doesn't have to.</div>
+  </div>
+  <div class="spacer"></div><div class="spacer"></div>
+  <p class="body muted reveal">That's why the same small base ran a two-way gas test and a three-way skill comparison without any change to the framework itself. We didn't build it for either one. The agent bent it into each.</p>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">one base, many evals on top of it</div>
+    <pre class="mermaid">
+flowchart TB
+  F["skill-eval-framework<br/>the base"]:::acc --> G["gas skill:<br/>help or not"]:::gray
+  F --> C["ethskills vs<br/>SE-2 docs"]:::gray
+  F --> A["an audit skill<br/>on real contracts"]:::gray
+  F --> N["your next eval"]:::gray
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+    </pre>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">It sits there like a reusable block the agent draws on instead of rebuilding, a cache for how to run a fair benchmark, and you spend your effort on the eval you actually want, not the plumbing under it.</p>
+</section>
+
+<div class="foot">skill-eval-framework · gas + uniswap-swap · codex/gpt-5.5 · directional</div>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    securityLevel: "loose",
+    flowchart: { curve: "basis", useMaxWidth: true },
+    themeVariables: {
+      background: "#191B24",
+      primaryColor: "#191B24",
+      primaryTextColor: "#ECEAE3",
+      primaryBorderColor: "#2C2F3C",
+      lineColor: "#8B8E9E",
+      fontFamily: "IBM Plex Mono, monospace",
+      fontSize: "14px",
+    },
+  });
+</script>
+<script>
+  (function () {
+    var reveals = document.querySelectorAll(".reveal");
+    if (!("IntersectionObserver" in window)) {
+      reveals.forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add("in");
+          e.target.querySelectorAll(".fill[data-w]").forEach(function (f) { f.style.width = f.dataset.w; });
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    reveals.forEach(function (el) { io.observe(el); });
+    setTimeout(function () {
+      reveals.forEach(function (el) {
+        el.classList.add("in");
+        el.querySelectorAll(".fill[data-w]").forEach(function (f) { f.style.width = f.dataset.w; });
+      });
+    }, 4000);
+  })();
+</script>
+</body>
+</html>
