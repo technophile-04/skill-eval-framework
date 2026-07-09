@@ -222,32 +222,6 @@
     </div>
     <div class="mold-arrow">The agent fills in everything inside these lines, and moves one when the eval needs a different shape. How the executor runs and how the judge runs are already settled, so it doesn't have to work them out.</div>
   </div>
-  <div class="spacer"></div>
-  <p class="sub" style="margin-top:0">Here is how those four play out in a single run, start to finish:</p>
-  <div class="spacer"></div>
-  <div class="diagram reveal">
-    <div class="cap">one task, one arm, start to finish</div>
-    <pre class="mermaid">
-flowchart LR
-  TY["task.yaml"]:::acc
-  TY -->|"input"| SU["setup"]:::gray
-  SU --> WS
-  EX["fresh executor<br/>codex / claude"]:::gray -->|"works the task"| WS
-  subgraph BOX["the clean workspace"]
-    WS["TASK.md<br/>+ the skill<br/><br/>all the executor<br/>ever sees"]:::gray
-  end
-  WS --> VF["verify"]:::gray
-  VF -->|"evidence"| J["blind judge<br/>codex / claude"]:::ok
-  TY -->|"expect lines"| J
-  J --> R["result.yaml<br/>pass / fail"]:::acc
-  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
-  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
-  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
-  style BOX fill:#12131A,stroke:#E8B24C,stroke-width:2px,stroke-dasharray:6 4,color:#E8B24C;
-    </pre>
-  </div>
-  <div class="spacer"></div>
-  <p class="sub" style="margin-top:0">The dashed box is the part worth pausing on. It draws a boundary around what the executor is allowed to know. <b>setup</b> copies the task input in as <span class="mono">TASK.md</span>, and on a with_skill run it copies the skill in beside it. The <b>expect lines never cross that line</b>, and setup hard-fails if they try. So the executor works the problem without knowing what it will be graded on, and the judge sits on the far side reading only the evidence and the checks, never the variant, the skill, or the transcript.</p>
 </section>
 
 <!-- 1 · HOW YOU START IT -->
@@ -299,7 +273,7 @@ runs: <span class="k">3</span></pre>
 <section>
   <div class="eyebrow" data-n="02">Both ways, then compare</div>
   <h2 class="big reveal">Run it with the skill, and without.</h2>
-  <p class="body muted reveal">That diagram was one run, one arm. To actually test the skill, the framework runs the whole task twice over: three times with the gas skill installed, three times without. Six fresh executors, six clean workspaces, one report at the end.</p>
+  <p class="body muted reveal">One task file, and one run of it, tells you almost nothing. To actually test the skill, the framework runs the whole task twice over: three times with the gas skill installed, three times without. Six fresh executors, six clean workspaces, one report at the end.</p>
   <div class="spacer"></div>
   <div class="diagram reveal">
     <div class="cap">one task, two variants, six runs, one report</div>
@@ -330,7 +304,33 @@ flowchart TB
 <section>
   <div class="eyebrow" data-n="03">What a run leaves behind</div>
   <h2 class="big reveal">Zoom in on one of those runs.</h2>
-  <p class="body muted reveal">Each of the six gets a directory to itself. The orchestrator seeds it, the executor works inside it, and verify snapshots it before the workspace gets deleted. Here it is at both moments: the clean room on the way in, and what the run left behind on the way out.</p>
+  <p class="body muted reveal">Pick any one of the six. Start to finish, it looks like this:</p>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">one task, one arm, start to finish</div>
+    <pre class="mermaid">
+flowchart LR
+  TY["task.yaml"]:::acc
+  TY -->|"input"| SU["setup"]:::gray
+  SU --> WS
+  EX["fresh executor<br/>codex / claude"]:::gray -->|"works the task"| WS
+  subgraph BOX["the clean workspace"]
+    WS["TASK.md<br/>+ the skill<br/><br/>all the executor<br/>ever sees"]:::gray
+  end
+  WS --> VF["verify"]:::gray
+  VF -->|"evidence"| J["blind judge<br/>codex / claude"]:::ok
+  TY -->|"expect lines"| J
+  J --> R["result.yaml<br/>pass / fail"]:::acc
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
+  style BOX fill:#12131A,stroke:#E8B24C,stroke-width:2px,stroke-dasharray:6 4,color:#E8B24C;
+    </pre>
+  </div>
+  <div class="spacer"></div>
+  <p class="body muted reveal">The dashed box is the part worth pausing on. It draws a boundary around what the executor is allowed to know. <strong class="mono">setup</strong> copies the task input in as <span class="mono">TASK.md</span>, and on a with_skill run it copies the skill in beside it. The <strong>expect lines never cross that line</strong>, and setup hard-fails if they try. So the executor works the problem without knowing what it will be graded on, and the judge sits on the far side reading only the evidence and the checks, never the variant, the skill, or the transcript.</p>
+  <div class="spacer"></div>
+  <p class="body muted reveal">That whole run happens inside one directory. The orchestrator seeds it, the executor works inside it, and verify snapshots it before the workspace gets deleted. Here it is at both moments: the clean room on the way in, and what the run left behind on the way out.</p>
   <div class="spacer"></div>
   <div class="ws">
     <div class="filecard reveal">
