@@ -79,6 +79,8 @@
   .card { background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
   .card .tag { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
   .card h3 { font-size: 20px; margin: 8px 0 0; }
+  .card .src { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--teal); margin-top: 7px; overflow-wrap: anywhere; }
+  .card .src.none { color: var(--muted); }
   .card p { font-size: 15.5px; color: var(--muted); margin: 10px 0 0; }
 
   /* mermaid frame */
@@ -444,9 +446,9 @@ $ curl -s 'api.coinbase.com
   <p class="body muted reveal">Three fresh agents, one variable between them: what each was told to read before it started building.</p>
   <div class="spacer"></div>
   <div class="row cols-3">
-    <div class="card reveal"><div class="tag">the control</div><h3>bare</h3><p>No skill at all. This is the one we actually cared about: is the agent already good enough on its own?</p></div>
-    <div class="card reveal"><div class="tag">a procedure</div><h3>SE-2 docs</h3><p>Follow the Scaffold-ETH docs. It's a how-to more than knowledge: scaffold the project, read the guide, build.</p></div>
-    <div class="card reveal"><div class="tag">knowledge</div><h3>ethskills</h3><p>Follow ethskills.com, a library of contract addresses, security notes, and DeFi facts to pull from.</p></div>
+    <div class="card reveal"><div class="tag">the control</div><h3>bare</h3><div class="src none">nothing installed</div><p>No skill at all. This is the one we actually cared about: is the agent already good enough on its own?</p></div>
+    <div class="card reveal"><div class="tag">a procedure</div><h3>SE-2 docs</h3><div class="src">docs.scaffoldeth.io/SKILL.md</div><p>A how-to more than knowledge: scaffold the project, read the guide, build.</p></div>
+    <div class="card reveal"><div class="tag">knowledge</div><h3>ethskills</h3><div class="src">ethskills.com/SKILL.md</div><p>A library of contract addresses, security notes, and DeFi facts to pull from.</p></div>
   </div>
   <div class="spacer"></div>
   <div class="diagram reveal">
