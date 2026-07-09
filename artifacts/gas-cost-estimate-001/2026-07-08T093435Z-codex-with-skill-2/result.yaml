@@ -1,0 +1,12 @@
+task: gas-cost-estimate-001
+run: 2026-07-08T093435Z-codex-with-skill-2
+executor: codex
+variant: with_skill
+skill_version: 3daee58
+created: '2026-07-08T09:34:35.856Z'
+expects:
+  expect_1: pass
+  expect_2: pass
+  expect_3: pass
+  expect_4: pass
+pass: true
