@@ -66,9 +66,11 @@ const parseVerdicts = (output: string, expectations: string[]): JudgeResult => {
 type Spawned = { ok: true; output: string } | { ok: false; error: string };
 
 // `claude -p` prints the final message to stdout. Both auth env vars are unset so a
-// stray key can't silently swap the account the judge grades under.
+// stray key can't silently swap the account the judge grades under. The prompt goes in
+// on stdin, not argv: repo-shaped runs assemble evidence far larger than the OS argv
+// limit (E2BIG), and `-p` with no positional prompt reads it from stdin.
 const runClaudeJudge = (prompt: string, model: string | null): Spawned => {
-  const args = ["-u", "ANTHROPIC_API_KEY", "-u", "ANTHROPIC_AUTH_TOKEN", "claude", "-p", prompt];
+  const args = ["-u", "ANTHROPIC_API_KEY", "-u", "ANTHROPIC_AUTH_TOKEN", "claude", "-p"];
 
   if (model) {
     args.push("--model", model);
@@ -76,7 +78,12 @@ const runClaudeJudge = (prompt: string, model: string | null): Spawned => {
 
   args.push("--setting-sources", "project", "--strict-mcp-config");
 
-  const result = spawnSync("env", args, { encoding: "utf8", timeout: JUDGE_TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES });
+  const result = spawnSync("env", args, {
+    input: prompt,
+    encoding: "utf8",
+    timeout: JUDGE_TIMEOUT_MS,
+    maxBuffer: MAX_OUTPUT_BYTES,
+  });
 
   if (result.error) {
     return { ok: false, error: result.error.message };
@@ -91,7 +98,8 @@ const runClaudeJudge = (prompt: string, model: string | null): Spawned => {
 
 // `codex exec` interleaves session logging with the answer on stdout, so take the
 // final message from --output-last-message instead. read-only: the judge reads
-// evidence, it never edits a workspace.
+// evidence, it never edits a workspace. `-` for the prompt reads it from stdin, keeping
+// repo-shaped evidence off argv (E2BIG).
 const runCodexJudge = (prompt: string, model: string | null): Spawned => {
   const dir = mkdtempSync(path.join(tmpdir(), "skill-eval-judge-"));
   const messagePath = path.join(dir, "last-message.txt");
@@ -101,10 +109,11 @@ const runCodexJudge = (prompt: string, model: string | null): Spawned => {
     args.push("-m", model);
   }
 
-  args.push(prompt);
+  args.push("-");
 
   try {
     const result = spawnSync("codex", args, {
+      input: prompt,
       encoding: "utf8",
       timeout: JUDGE_TIMEOUT_MS,
       maxBuffer: MAX_OUTPUT_BYTES,
