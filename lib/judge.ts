@@ -10,11 +10,27 @@ const JUDGE_TIMEOUT_MS = 120_000;
 const failExpectations = (expectations: string[]) =>
   Object.fromEntries(expectations.map((_, index) => [`expect_${index + 1}`, "fail" as const]));
 
+// The judge occasionally wraps its JSON in a markdown fence or a line of preamble. Pull the
+// JSON object out rather than re-rolling the model — strip a fence, then take the outermost { }.
+const extractJson = (raw: string) => {
+  let text = raw.trim();
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+
+  if (fenced) {
+    text = fenced[1].trim();
+  }
+
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+
+  return start !== -1 && end > start ? text.slice(start, end + 1) : text;
+};
+
 const parseVerdicts = (output: string, expectations: string[]): JudgeResult => {
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(output);
+    parsed = JSON.parse(extractJson(output));
   } catch {
     return { ok: false, expects: failExpectations(expectations), error: "judge output was not strict JSON" };
   }
@@ -59,6 +75,8 @@ export const judgeExpectations = (taskInput: string, expectations: string[], evi
     "EXPECT CONDITIONS:",
     ...expectations.map((condition, index) => `${index + 1}. ${condition}`),
   ].join("\n");
+  // Prompt goes in on stdin, not argv: repo-shaped runs assemble evidence far larger than the
+  // OS argv limit (E2BIG). `claude -p` with no positional prompt reads the prompt from stdin.
   const args = [
     "-u",
     "ANTHROPIC_API_KEY",
@@ -66,14 +84,18 @@ export const judgeExpectations = (taskInput: string, expectations: string[], evi
     "ANTHROPIC_AUTH_TOKEN",
     "claude",
     "-p",
-    prompt,
     "--model",
     "claude-opus-4-6",
     "--setting-sources",
     "project",
     "--strict-mcp-config",
   ];
-  const result = spawnSync("env", args, { encoding: "utf8", timeout: JUDGE_TIMEOUT_MS, maxBuffer: 8 * 1024 * 1024 });
+  const result = spawnSync("env", args, {
+    input: prompt,
+    encoding: "utf8",
+    timeout: JUDGE_TIMEOUT_MS,
+    maxBuffer: 8 * 1024 * 1024,
+  });
 
   if (result.error) {
     return { ok: false, expects: failExpectations(expectations), error: result.error.message };

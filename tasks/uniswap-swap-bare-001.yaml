@@ -1,0 +1,23 @@
+skill: "none — bare control, no skill url in the prompt"
+input: |
+  Build a Scaffold-ETH 2 dApp on Ethereum mainnet: a Uniswap swap interface where a
+  user swaps USDC for WETH (supporting the reverse direction is a plus). The user
+  enters an input amount, sees the expected output, approves the token when needed,
+  and executes the swap against real Uniswap and token contracts on Ethereum mainnet.
+  Make it compile.
+
+  Scaffold non-interactively (use flags that avoid interactive prompts).
+expect:
+  - "The dApp uses only canonical Ethereum mainnet addresses, no placeholder or hallucinated ones: WETH 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, and a real Uniswap mainnet router (V2 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, V3 SwapRouter 0xE592427A0AEce92De3Edee1F18E0157C05861564, SwapRouter02 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45, or Universal Router 0x66a9893cc07d91d95644aedd05d03f95e1dba8af)."
+  - "The swap UI implements the ERC-20 approval flow: it checks the current allowance and only asks for an approve tx when allowance is insufficient, then enables the swap — not a blind approve-every-time or swap-without-approve. Transaction pending/loading state is shown."
+  - "Token amounts use each token's real decimals — USDC as 6, not a hardcoded 18 — so parsed and displayed amounts are correct."
+  - "The swap passes a non-zero minimum output (amountOutMinimum / slippage bound) and/or a deadline, rather than 0 for minimum out, which would invite sandwich/MEV loss."
+runs: 1
+notes: |
+  Arm 1 of 3 in a cross-skill A/B (see uniswap-swap-se2docs-001, uniswap-swap-ethskills-001).
+  Same expect rubric and bare workspace across all three; the only difference is which
+  SKILL.md url the prompt tells the agent to follow. This bare arm has no url — the control
+  for "is a smart agent told to build an SE-2 swap app already good enough?". Executor codex
+  gpt-5.5. Bare workspace, no template: the agent scaffolds SE-2 itself (npx create-eth).
+  Run as --variant no_skill (the arm lives in the input, not an installed skill dir; the
+  skill: field above is unused). 1 run each = directional, not conclusive.

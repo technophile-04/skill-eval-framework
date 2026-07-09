@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import yaml from "js-yaml";
@@ -9,6 +9,13 @@ import { isRecord, loadTaskSpec, loadYamlFile, parseArgs, requireString } from "
 import type { Executor, ExpectStatus, ResultRecord, Variant } from "../lib/types.js";
 
 const ROOT = process.cwd();
+// Generated/vendored dirs a scaffolded repo (e.g. create-eth) leaves behind. The snapshot
+// path captures source the run produced, not gigabytes of node_modules or build output.
+const SKIP_DIRS = new Set([
+  "node_modules", "lib", ".git", ".next", ".yarn", ".agents", ".claude", "dist", "build",
+  "out", "cache", "broadcast", "coverage", ".turbo", ".husky", ".vscode",
+]);
+const MAX_SNAPSHOT_FILE_BYTES = 256 * 1024;
 const EXECUTORS = new Set<Executor>(["claude", "codex"]);
 const VARIANTS = new Set<Variant>(["no_skill", "with_skill"]);
 const VERIFY_ARGS = new Set(["run"]);
@@ -74,7 +81,9 @@ const walkFiles = async (dir: string) => {
       const fullPath = path.join(current, child.name);
 
       if (child.isDirectory()) {
-        pending.push(fullPath);
+        if (!SKIP_DIRS.has(child.name)) {
+          pending.push(fullPath);
+        }
       } else if (child.isFile()) {
         entries.push(fullPath);
       }
@@ -85,6 +94,10 @@ const walkFiles = async (dir: string) => {
 };
 
 const writeDiff = async (workspacePath: string, diffPath: string) => {
+  // Intent-to-add so new (untracked) files show their content in the diff, not just a
+  // filename in status — the judge needs to see files the run created. Honors .gitignore,
+  // so node_modules and build output stay out.
+  execFileSync("git", ["-C", workspacePath, "add", "-N", "."], { encoding: "utf8" });
   const diff = execFileSync("git", ["-C", workspacePath, "diff"], { encoding: "utf8" });
   const status = execFileSync("git", ["-C", workspacePath, "status", "--porcelain"], { encoding: "utf8" });
   const content = `${diff}${diff.endsWith("\n") || diff.length === 0 ? "" : "\n"}\n# Untracked files and status\n${status}`;
@@ -99,12 +112,19 @@ const snapshotOutput = async (workspacePath: string, outputPath: string) => {
     const relativePath = path.relative(workspacePath, file);
     const segments = relativePath.split(path.sep);
 
-    if (
-      relativePath === "TASK.md" ||
-      segments[0] === ".agents" ||
-      segments[0] === ".claude" ||
-      segments[0] === "node_modules"
-    ) {
+    if (relativePath === "TASK.md" || segments.some(segment => SKIP_DIRS.has(segment))) {
+      continue;
+    }
+
+    // Backstop: a scaffold leaves big generated source too (lockfiles, bundled releases).
+    // Grading reads answer/source files; anything this large is not that.
+    if ((await stat(file)).size > MAX_SNAPSHOT_FILE_BYTES) {
+      continue;
+    }
+
+    // Skip binary assets (favicons, fonts, images). The judge reads evidence as text, and a
+    // NUL byte breaks the prompt arg; nothing gradeable lives in a binary anyway.
+    if (readFileSync(file).includes(0)) {
       continue;
     }
 

@@ -4,6 +4,10 @@ node_modules/
 artifacts/**/workspace/
 artifacts/**/transcript.md
 
+# repo-shaped runs snapshot the whole scaffold into output/; the result.yaml and the
+# report are the record, not hundreds of unchanged create-eth boilerplate files
+artifacts/uniswap-swap-*/**/output/
+
 # workspace seeds are regenerated, not versioned (task notes record how)
 templates/
 
