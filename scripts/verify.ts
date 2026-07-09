@@ -6,16 +6,35 @@ import process from "node:process";
 import yaml from "js-yaml";
 import { judgeExpectations } from "../lib/judge.js";
 import { isRecord, loadTaskSpec, loadYamlFile, parseArgs, requireString } from "../lib/task.js";
-import type { Executor, ExpectStatus, ResultRecord, Variant } from "../lib/types.js";
+import type { Executor, ExpectStatus, JudgeSpec, ResultRecord, Variant } from "../lib/types.js";
 
 const ROOT = process.cwd();
 const EXECUTORS = new Set<Executor>(["claude", "codex"]);
 const VARIANTS = new Set<Variant>(["no_skill", "with_skill"]);
-const VERIFY_ARGS = new Set(["run"]);
+const VERIFY_ARGS = new Set(["run", "judge-agent", "judge-model"]);
+
+// The judge is a fresh, blind process, never the orchestrator's own contaminated
+// context. Point it at the model you want doing the grading: pass --judge-agent
+// and --judge-model to grade with the orchestrator's model. With neither, it falls
+// back to the agent that performed the run, and the record marks that self_judged.
+const resolveJudge = (args: Record<string, string | boolean>, executor: Executor): JudgeSpec => {
+  const agent = args["judge-agent"] === undefined ? executor : parseAgent(requireString(args["judge-agent"], "--judge-agent"));
+  const model = args["judge-model"] === undefined ? null : requireString(args["judge-model"], "--judge-model");
+
+  return { agent, model };
+};
 
 const parseExecutor = (value: string): Executor => {
   if (!EXECUTORS.has(value as Executor)) {
     throw new Error(`unknown executor in result.yaml: ${value}`);
+  }
+
+  return value as Executor;
+};
+
+const parseAgent = (value: string): Executor => {
+  if (!EXECUTORS.has(value as Executor)) {
+    throw new Error(`unknown --judge-agent: ${value} (expected claude or codex)`);
   }
 
   return value as Executor;
@@ -174,21 +193,30 @@ const main = async () => {
       await snapshotOutput(workspacePath, path.join(runDir, "output"));
     }
 
-    const judge = judgeExpectations(taskSpec.input, taskSpec.expect, await buildEvidence(runDir));
+    const judgeSpec = resolveJudge(args, result.executor);
+    const verdict = judgeExpectations(taskSpec.input, taskSpec.expect, await buildEvidence(runDir), judgeSpec);
 
-    if (!judge.ok) {
-      throw new Error(`judge failed: ${judge.error}`);
+    if (!verdict.ok) {
+      throw new Error(`judge failed: ${verdict.error}`);
     }
 
-    const pass = Object.values(judge.expects).every(status => status === "pass");
+    const pass = Object.values(verdict.expects).every(status => status === "pass");
+    // Rebuilt field by field rather than spread: loadResultRecord leaves `expects` and
+    // `pass` as undefined keys, so spreading would strand `judge` below them in the yaml.
     const gradedResult: ResultRecord = {
-      ...result,
-      expects: judge.expects,
+      task: result.task,
+      run: result.run,
+      executor: result.executor,
+      variant: result.variant,
+      skill_version: result.skill_version,
+      created: result.created,
+      judge: { ...judgeSpec, self_judged: judgeSpec.agent === result.executor },
+      expects: verdict.expects,
       pass,
     };
 
     await writeFile(resultPath, yaml.dump(gradedResult, { lineWidth: -1 }));
-    summarize(judge.expects);
+    summarize(verdict.expects);
     process.exit(pass ? 0 : 2);
   } catch (error) {
     console.error(`verify: ${error instanceof Error ? error.message : String(error)}`);
