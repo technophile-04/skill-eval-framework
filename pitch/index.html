@@ -64,8 +64,9 @@
   .mold { margin-top: 20px; }
   .mold-frame { border: 2px dashed var(--amber); border-radius: 14px; padding: 20px; background: rgba(232,178,76,0.035); }
   .mold-lab { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--amber); margin-bottom: 16px; }
-  .mold-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  @media (max-width: 640px) { .mold-cells { grid-template-columns: repeat(2, 1fr); } }
+  .mold-cells { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 900px) { .mold-cells { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
+  @media (max-width: 640px) { .mold-cells { grid-template-columns: repeat(2, 1fr); } .mold-cells .cell:last-child { grid-column: 1 / -1; } }
   .cell { position: relative; background: var(--ink-2); border: 1px solid var(--line); border-radius: 8px; padding: 20px 14px 16px; font-family: "IBM Plex Mono", monospace; font-size: 15px; color: var(--fg); text-align: center; }
   .cell .n { position: absolute; top: 7px; left: 10px; font-size: 11px; color: var(--teal); }
   .cell small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
@@ -209,18 +210,19 @@
     </div>
   </div>
   <div class="spacer"></div>
-  <p class="sub" style="margin-top:0">Four things are fixed. Everything else the agent decides.</p>
+  <p class="sub" style="margin-top:0">Five things are fixed. Everything else the agent decides.</p>
   <div class="mold reveal">
     <div class="mold-frame">
       <div class="mold-lab">the block we hand over · the fixed lines</div>
       <div class="mold-cells">
-        <div class="cell"><span class="n">1</span>task<small>what to build</small></div>
-        <div class="cell"><span class="n">2</span>executor<small>a fresh agent</small></div>
-        <div class="cell"><span class="n">3</span>judge<small>grades it blind</small></div>
-        <div class="cell"><span class="n">4</span>result<small>written down</small></div>
+        <div class="cell"><span class="n">1</span>orchestrator<small>your agent, drives it</small></div>
+        <div class="cell"><span class="n">2</span>task<small>what to build, and what it's graded on</small></div>
+        <div class="cell"><span class="n">3</span>executor<small>a fresh agent</small></div>
+        <div class="cell"><span class="n">4</span>judge<small>grades it blind</small></div>
+        <div class="cell"><span class="n">5</span>result<small>written down</small></div>
       </div>
     </div>
-    <div class="mold-arrow">The agent fills in everything inside these lines, and moves one when the eval needs a different shape. How the executor runs and how the judge runs are already settled, so it doesn't have to work them out.</div>
+    <div class="mold-arrow">Your agent is the orchestrator. It fills in everything inside these lines, and moves one when the eval needs a different shape. How the executor runs and how the judge runs are already settled, so it doesn't have to work them out.</div>
   </div>
 </section>
 
@@ -610,7 +612,7 @@ flowchart LR
 <section>
   <div class="eyebrow" data-n="12">Why it's built this way</div>
   <h2 class="big reveal">We built a mold, and handed it to the agent.</h2>
-  <p class="body muted reveal">There are plenty of eval frameworks already. We read through them, then went the other way. Instead of one more feature-heavy harness, we cut it down to the smallest frame that still runs a fair benchmark, the four lines you saw at the top: how a task runs, how a fresh executor performs it, how a blind judge grades it, what gets written down. Everything inside them the agent fills in, and when an eval needs a different shape, it just moves a line. It's paint-by-numbers, we drew the outline and the agent paints, free to redraw. In Hindi you'd call the frame a <em>khaka</em>, a mold.</p>
+  <p class="body muted reveal">There are plenty of eval frameworks already. We read through them, then went the other way. Instead of one more feature-heavy harness, we cut it down to the smallest frame that still runs a fair benchmark, the five lines you saw at the top: who orchestrates, what the task is and what it's graded on, how a fresh executor performs it, how a blind judge grades it, what gets written down. Everything inside them the agent fills in, and when an eval needs a different shape, it just moves a line. It's paint-by-numbers, we drew the outline and the agent paints, free to redraw. In Hindi you'd call the frame a <em>khaka</em>, a mold.</p>
   <div class="spacer"></div>
   <p class="body muted reveal">That's why the same small base ran a two-way gas test and a three-way skill comparison without any change to the framework itself. We didn't build it for either one. The agent bent it into each.</p>
   <div class="spacer"></div>
