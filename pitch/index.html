@@ -232,6 +232,22 @@
     </div>
     <div class="mold-arrow">Your agent is the orchestrator. It fills in everything inside these lines, and moves one when the eval needs a different shape. How the executor runs and how the judge runs are already settled, so it doesn't have to work them out.</div>
   </div>
+  <div class="spacer"></div>
+  <p class="sub" style="margin-top:0">Stand back far enough and the whole thing is a loop. You write a skill, run it through the block, read what the runs say went wrong, and patch the skill where they point. Everything below is one turn of it, in detail.</p>
+  <div class="spacer"></div>
+  <div class="diagram reveal">
+    <div class="cap">the loop you run a skill through over time</div>
+    <pre class="mermaid">
+flowchart LR
+  WS["write / edit<br/>the skill"]:::acc --> RUN["run the framework"]:::gray
+  RUN --> M["mistake record<br/>what went wrong"]:::ok
+  M --> UP["patch the skill<br/>at the weak spot"]:::acc
+  UP --> RUN
+  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
+  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
+  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
+    </pre>
+  </div>
 </section>
 
 <!-- 1 · HOW YOU START IT -->
@@ -607,21 +623,7 @@ flowchart TB
 <section>
   <div class="eyebrow" data-n="10">When a skill misses</div>
   <h2 class="big reveal">Bad runs turn into notes on the skill.</h2>
-  <p class="body muted reveal">A tie is the boring case. The framework earns its keep when a skill fails, because it writes down <em>why</em>. When an executor gets something wrong, that goes into a mistake record: what broke, how often, and which part of the skill should have caught it. That record is the thing you act on next.</p>
-  <div class="spacer"></div>
-  <div class="diagram reveal">
-    <div class="cap">the loop you run a skill through over time</div>
-    <pre class="mermaid">
-flowchart LR
-  WS["write / edit<br/>the skill"]:::acc --> RUN["run the framework"]:::gray
-  RUN --> M["mistake record<br/>what went wrong"]:::ok
-  M --> UP["patch the skill<br/>at the weak spot"]:::acc
-  UP --> RUN
-  classDef gray fill:#191B24,stroke:#2C2F3C,color:#ECEAE3;
-  classDef acc fill:#241E12,stroke:#E8B24C,color:#E8B24C;
-  classDef ok fill:#12211F,stroke:#4FD1C5,color:#4FD1C5;
-    </pre>
-  </div>
+  <p class="body muted reveal">A tie is the boring case. The framework earns its keep when a skill fails, because it writes down <em>why</em>. When an executor gets something wrong, that goes into a mistake record: what broke, how often, and which part of the skill should have caught it. That record is the thing you act on next, and it's the step the loop at the top of this page turns on.</p>
   <div class="spacer"></div>
   <p class="body muted reveal">This swap run didn't produce any, since everyone passed. But an earlier gas-price skill run did: the model kept quoting a stale ETH price from memory, we logged it, and it pointed straight at the section of the skill to fix. Scores tell you if a skill helped. Mistake records tell you what to write next.</p>
 </section>
