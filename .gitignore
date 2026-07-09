@@ -4,6 +4,10 @@ node_modules/
 artifacts/**/workspace/
 artifacts/**/transcript.md
 
+# repo-shaped runs snapshot the whole scaffold into output/; the result.yaml is the
+# record, not hundreds of unchanged boilerplate files
+artifacts/**/output/
+
 # workspace seeds are regenerated, not versioned (task notes record how)
 templates/
 
