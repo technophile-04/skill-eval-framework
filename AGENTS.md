@@ -62,7 +62,7 @@ cd <workspace> && codex exec -s workspace-write "$(cat TASK.md)"
 
 Save the executor's full transcript to `<run-dir>/transcript.md`.
 
-**Judge**: a blind LLM, pinned in `lib/judge.ts`, that grades `expect:` lines from the evidence `verify` assembles (diff + output files). It never sees the variant, the skill, or the transcript.
+**Judge**: a blind LLM that grades `expect:` lines from the evidence `verify` assembles (diff + output files). It never sees the variant, the skill, or the transcript. The model is pinned by `JUDGE_MODEL` in `lib/judge.ts`; keep it fixed for the length of a benchmark, and record it in the report.
 
 ## Task spec
 

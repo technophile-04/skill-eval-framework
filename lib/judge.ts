@@ -7,6 +7,11 @@ export type JudgeResult =
 
 const JUDGE_TIMEOUT_MS = 120_000;
 
+// Pin the judge for the length of a benchmark: a grader that drifts between runs
+// makes with_skill and no_skill incomparable. Override to re-grade an old
+// benchmark on the model it originally ran under.
+const JUDGE_MODEL = process.env.JUDGE_MODEL ?? "claude-opus-4-8";
+
 const failExpectations = (expectations: string[]) =>
   Object.fromEntries(expectations.map((_, index) => [`expect_${index + 1}`, "fail" as const]));
 
@@ -68,7 +73,7 @@ export const judgeExpectations = (taskInput: string, expectations: string[], evi
     "-p",
     prompt,
     "--model",
-    "claude-opus-4-6",
+    JUDGE_MODEL,
     "--setting-sources",
     "project",
     "--strict-mcp-config",
