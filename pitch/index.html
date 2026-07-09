@@ -516,7 +516,9 @@ flowchart TB
     <div class="score reveal"><div class="name">ethskills</div><div class="val">4/4</div><div class="of">knowledge</div></div>
   </div>
   <div class="spacer"></div>
-  <p class="body muted reveal">A tie on the scorecard doesn't mean three identical apps, though. It means everyone cleared the same floor. What separated them was how much it took to get there.</p>
+  <p class="body muted reveal">A tie on the scorecard doesn't mean three identical apps, though. It means everyone cleared the same floor. Look just underneath it and <span class="coral">bare reached for Uniswap's older V3 SwapRouter</span>, while both skill arms used the current SwapRouter02. That first check listed four routers it would accept as canonical, and the old one is on the list, so bare passed it honestly. The skills did move something real, and the check was written wide enough not to see it.</p>
+  <div class="spacer"></div>
+  <p class="body muted reveal">Which is the eval reporting on its own blind spot. The fix isn't a better skill, it's a narrower expect line: ask for the current router next time, not any router that exists. You only get to write that line because this run showed you where the rubric stopped looking. Beyond it, what separated the three was how much it took to get there.</p>
 </section>
 
 <!-- 10 · WHAT IT COST -->
@@ -540,7 +542,7 @@ flowchart TB
         <div class="glab">score</div><div class="track"><div class="fill score" data-w="100%"><span class="lab">4 / 4</span></div></div>
         <div class="glab">tokens</div><div class="track"><div class="fill tok" data-w="83%"><span class="lab">205,137</span></div></div>
       </div>
-      <div class="note">no skill, still a correct app. Its one soft miss was reaching for the older V3 router.</div>
+      <div class="note">no skill, still a correct app. It just reached for the older router on its way there.</div>
     </div>
     <div class="arm reveal">
       <div class="head"><b>ethskills</b><span class="id">542 lines · modern router + slippage tiers</span></div>
