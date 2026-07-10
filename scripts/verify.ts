@@ -9,12 +9,20 @@ import { isRecord, loadTaskSpec, loadYamlFile, parseArgs, requireString } from "
 import type { Executor, ExpectStatus, JudgeSpec, ResultRecord, Variant } from "../lib/types.js";
 
 const ROOT = process.cwd();
+// Where setup installs the skill. Evidence that reaches the judge must exclude these, or the
+// judge reads the skill itself and learns which variant produced the run. Both evidence paths
+// (snapshot and diff) derive their exclusions from this list, so adding an executor's bridge
+// dir here covers both; a dir listed in one path and missed in the other silently corrupts a
+// benchmark, which is how the skill first leaked into run.diff.
+const SKILL_INSTALL_DIRS = [".agents", ".claude"];
 // Generated/vendored dirs a scaffolded repo (e.g. create-eth) leaves behind. The snapshot
-// path captures source the run produced, not gigabytes of node_modules or build output.
-const SKIP_DIRS = new Set([
-  "node_modules", "lib", ".git", ".next", ".yarn", ".agents", ".claude", "dist", "build",
+// captures source the run produced, not gigabytes of node_modules or build output. Unlike
+// SKILL_INSTALL_DIRS, missing one of these makes evidence noisy, never wrong.
+const GENERATED_DIRS = [
+  "node_modules", "lib", ".git", ".next", ".yarn", "dist", "build",
   "out", "cache", "broadcast", "coverage", ".turbo", ".husky", ".vscode",
-]);
+];
+const SKIP_DIRS = new Set([...SKILL_INSTALL_DIRS, ...GENERATED_DIRS]);
 const MAX_SNAPSHOT_FILE_BYTES = 256 * 1024;
 const EXECUTORS = new Set<Executor>(["claude", "codex"]);
 const VARIANTS = new Set<Variant>(["no_skill", "with_skill"]);
@@ -113,12 +121,15 @@ const walkFiles = async (dir: string) => {
 };
 
 const writeDiff = async (workspacePath: string, diffPath: string) => {
+  const pathspec = [".", ...SKILL_INSTALL_DIRS.map(dir => `:(exclude)${dir}`)];
+
   // Intent-to-add so new (untracked) files show their content in the diff, not just a
   // filename in status — the judge needs to see files the run created. Honors .gitignore,
-  // so node_modules and build output stay out.
-  execFileSync("git", ["-C", workspacePath, "add", "-N", "."], { encoding: "utf8" });
-  const diff = execFileSync("git", ["-C", workspacePath, "diff"], { encoding: "utf8" });
-  const status = execFileSync("git", ["-C", workspacePath, "status", "--porcelain"], { encoding: "utf8" });
+  // so node_modules and build output stay out. The installed skill is untracked and not
+  // gitignored, so only the pathspec keeps it out of the judge's evidence.
+  execFileSync("git", ["-C", workspacePath, "add", "-N", "--", ...pathspec], { encoding: "utf8" });
+  const diff = execFileSync("git", ["-C", workspacePath, "diff", "--", ...pathspec], { encoding: "utf8" });
+  const status = execFileSync("git", ["-C", workspacePath, "status", "--porcelain", "--", ...pathspec], { encoding: "utf8" });
   const content = `${diff}${diff.endsWith("\n") || diff.length === 0 ? "" : "\n"}\n# Untracked files and status\n${status}`;
 
   await writeFile(diffPath, content);
