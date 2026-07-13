@@ -4,11 +4,11 @@ You are the orchestrator. This repo benchmarks an agent skill by running the sam
 
 ## How to use this
 
-The human opens an agent here and says something like *"eval the skill at `skills/gas`"*. Everything else you work out with them, one question at a time.
+The human opens an agent here and says something like *"eval the skill at `skills/gas`"*, or points at a URL like *"eval the skill at `https://ethskills.com/gas/SKILL.md`"*. Everything else you work out with them, one question at a time.
 
 Ask one question, wait for the answer, then ask the next. Never batch them. **With every question, propose your recommended answer**, drafted from what you have already read, so the human can approve it or correct it in a few words. A question with no recommendation attached is a question you have not done the work on.
 
-**Step 1 — which skill.** If they named a skill directory, read it. If they did not, ask which one, and list what is under `skills/`.
+**Step 1 — which skill.** If they named a skill directory, read it. If they gave a URL, fetch it into `skills/<name>/` first (the vendored copy is what gets tested and versioned; record the source URL in the task's `notes`). If they named nothing, ask which one, and list what is under `skills/`.
 
 **Step 2 — the task.** Read the skill. Find the prior it corrects: the thing a model without this skill believes and gets wrong. Draft a task `input` that a stale-prior agent will fail, show it to the human, and ask if it holds up. Decide the shape while you draft:
 
@@ -55,10 +55,11 @@ cd <workspace> && env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN \
   --setting-sources project --dangerously-skip-permissions --strict-mcp-config
 
 # codex
-cd <workspace> && codex exec -s workspace-write "$(cat TASK.md)"
+cd <workspace> && codex exec -s workspace-write \
+  -c sandbox_workspace_write.network_access=true "$(cat TASK.md)"
 ```
 
-`--setting-sources project` is load-bearing for claude: user-level config crowds the skill listing and skills stop triggering. For codex the model comes from `~/.codex/config.toml`.
+`--setting-sources project` is load-bearing for claude: user-level config crowds the skill listing and skills stop triggering. For codex the model comes from `~/.codex/config.toml`, and the network flag is load-bearing too: `workspace-write` blocks network by default, so without it every live-data task fails for the wrong reason.
 
 Save the executor's full transcript to `<run-dir>/transcript.md`.
 
@@ -70,7 +71,7 @@ Never grade from your own context. You have read the skill and the expect lines,
 yarn verify --run artifacts/<id>/<run-id> --judge-agent claude --judge-model <your model>
 ```
 
-Omit `--judge-model` to let that agent's CLI pick its own default. Omit both and the judge falls back to the agent that performed the run, which means the executor grades itself; `verify` records that as `self_judged: true` and you must say so in the report. Keep one judge for the length of a benchmark. A grader that changes between runs makes `with_skill` and `no_skill` incomparable.
+Omit `--judge-model` to let that agent's CLI pick its own default. Keep one judge for the length of a benchmark. A grader that changes between runs makes `with_skill` and `no_skill` incomparable.
 
 ## Task spec
 
